@@ -1,0 +1,23 @@
+/* ========================================
+   ✨ 流式渲染动画效果
+   ======================================== */
+
+/* 当前 Chat 使用 .vue-markdown-wrapper 与 .markdown-sse-content，样式在 Chat.vue scoped 中 */
+
+/* 打字机光标：使用 markdown.ts 注入的 <span class="sse_cursor"> 元素 */
+.sse_cursor {
+  display: inline-block;
+  width: 0;
+  margin-left: 2px;
+  border-left: 2px solid var(--primary, #0ea5e9);
+  animation: streamingCursorBlink 1s step-end infinite;
+}
+
+@keyframes streamingCursorBlink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}
