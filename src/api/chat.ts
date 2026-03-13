@@ -6,6 +6,7 @@
 
 import { getToken } from '../stores/auth'
 import { getStoredAnnoId } from './anon'
+import { apiFetch, apiFetchRaw } from './http'
 
 /** 与后端 ResultCodeEnum 对应，供前端区分业务错误 */
 export const StreamChatErrorCode = {
@@ -116,7 +117,7 @@ export function streamChat(
     }
   }
 
-  fetch(CHAT_ASYNC_URL, {
+  apiFetchRaw(CHAT_ASYNC_URL, {
     method: 'POST',
     credentials: 'include',
     headers,
@@ -213,7 +214,7 @@ export async function cancelChat(chatId: string): Promise<void> {
     }
   }
 
-  const response = await fetch(url, {
+  const response = await apiFetchRaw(url, {
     method: 'POST',
     credentials: 'include',
     headers
@@ -293,7 +294,7 @@ export function streamRegenerate(
     }
   }
 
-  fetch(REGENERATE_URL, {
+  apiFetchRaw(REGENERATE_URL, {
     method: 'POST',
     credentials: 'include',
     headers,
@@ -368,4 +369,18 @@ export function streamRegenerate(
     })
 
   return controller
+}
+
+export async function favorChatMessage(messageId: string | number, isFavor: boolean): Promise<void> {
+  const query =
+    '/api/chat/message/favor?messageId=' +
+    encodeURIComponent(String(messageId)) +
+    '&isFavor=' +
+    encodeURIComponent(String(isFavor))
+
+  const { ok, json } = await apiFetch<null>(query, { method: 'POST' })
+  const code = json?.code
+  if (!ok || (code !== undefined && code !== 0 && code !== 200)) {
+    throw new Error(json?.message || json?.msg || '点赞操作失败')
+  }
 }

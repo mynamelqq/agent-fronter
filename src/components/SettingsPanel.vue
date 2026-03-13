@@ -280,13 +280,41 @@
                       <div class="settings-model-company">{{ selectedChatModelOption.company }}</div>
                     </div>
                   </div>
-                  <div class="settings-model-feature">{{ selectedChatModelOption.feature }}</div>
+                  <div class="settings-model-id">{{ selectedChatModelOption.value }}</div>
+                  <div class="settings-model-desc">{{ selectedChatModelOption.description }}</div>
                   <div class="settings-model-meta">
                     <span class="settings-model-tag">
-                      工具调用：{{ selectedChatModelOption.toolCallingLabel }}
+                      工具调用：{{ toSupportLabel(selectedChatModelOption.toolCalling) }}
                     </span>
                     <span class="settings-model-tag">
-                      多模态：{{ selectedChatModelOption.multimodalLabel }}
+                      推理：{{ toSupportLabel(selectedChatModelOption.reasoning) }}
+                    </span>
+                    <span class="settings-model-tag">
+                      多模态：{{ formatMultimodalLabel(selectedChatModelOption.inputCapabilities) }}
+                    </span>
+                    <span class="settings-model-tag">
+                      输入：{{ formatCapabilities(selectedChatModelOption.inputCapabilities) }}
+                    </span>
+                    <span class="settings-model-tag">
+                      输出：{{ formatCapabilities(selectedChatModelOption.outputCapabilities) }}
+                    </span>
+                    <span
+                      v-if="selectedChatModelOption.structuredOutput"
+                      class="settings-model-tag"
+                    >
+                      结构化输出：支持
+                    </span>
+                    <span
+                      v-if="selectedChatModelOption.serverless"
+                      class="settings-model-tag"
+                    >
+                      Serverless：支持
+                    </span>
+                    <span
+                      v-if="selectedChatModelOption.contextLength || selectedChatModelOption.maxOutput"
+                      class="settings-model-tag"
+                    >
+                      {{ formatModelSpecs(selectedChatModelOption) }}
                     </span>
                   </div>
                 </div>
@@ -642,9 +670,87 @@
           </section>
         </div>
 
+        <div
+          v-show="activeTab === 'account'"
+          role="tabpanel"
+          class="settings-tabpanel"
+        >
+          <section class="settings-section">
+            <h3 class="settings-section-title">{{ uiLocale === 'en' ? 'Account' : '账户' }}</h3>
+
+            <div v-if="!isLoggedIn()" class="settings-row">
+              <p class="settings-placeholder">请先登录后再修改密码</p>
+            </div>
+
+            <div v-else class="settings-subsection">
+              <h4 class="settings-subsection-title">修改密码</h4>
+
+              <label class="settings-form-field">
+                <span class="settings-form-label">原密码</span>
+                <input
+                  v-model="passwordForm.oldPassword"
+                  class="settings-form-input"
+                  type="password"
+                  placeholder="请输入原密码"
+                  autocomplete="current-password"
+                />
+              </label>
+
+              <label class="settings-form-field">
+                <span class="settings-form-label">新密码</span>
+                <input
+                  v-model="passwordForm.newPassword"
+                  class="settings-form-input"
+                  type="password"
+                  placeholder="请输入新密码（至少 6 位）"
+                  autocomplete="new-password"
+                />
+              </label>
+
+              <label class="settings-form-field">
+                <span class="settings-form-label">确认新密码</span>
+                <input
+                  v-model="passwordForm.confirmPassword"
+                  class="settings-form-input"
+                  type="password"
+                  placeholder="请再次输入新密码"
+                  autocomplete="new-password"
+                />
+              </label>
+
+              <div class="settings-row">
+                <div class="settings-row-inner settings-row-actions">
+                  <button
+                    type="button"
+                    class="settings-btn-primary"
+                    :disabled="passwordSaveStatus === 'saving'"
+                    @click="submitPasswordUpdate"
+                  >
+                    {{ passwordSaveStatus === 'saving' ? '提交中…' : '修改密码' }}
+                  </button>
+                  <span
+                    class="settings-save-status"
+                    :class="{
+                      saving: passwordSaveStatus === 'saving',
+                      error: passwordSaveStatus === 'error'
+                    }"
+                  >
+                    <template v-if="passwordSaveStatus === 'saved'">密码已更新</template>
+                    <template v-else-if="passwordSaveStatus === 'error'">{{ passwordSaveError || '修改失败，请稍后重试' }}</template>
+                    <template v-else> </template>
+                  </span>
+                </div>
+                <p class="settings-row-desc">
+                  修改密码需要先校验当前登录账户的原密码。
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
+
         <!-- 其他 Tab 占位 -->
         <div
-          v-for="tab in tabs.filter(t => t.id !== 'general' && t.id !== 'personalization' && t.id !== 'mcp')"
+          v-for="tab in tabs.filter(t => t.id !== 'general' && t.id !== 'personalization' && t.id !== 'mcp' && t.id !== 'account')"
           :key="tab.id"
           v-show="activeTab === tab.id"
           role="tabpanel"
@@ -759,14 +865,17 @@ type ChatModelValue =
   | 'gpt-5-mini'
   | 'gpt-5.1-codex'
   | 'gpt-5'
+  | 'minimax/minimax-m2.5'
   | 'moonshotai/kimi-k2.5'
+  | 'doubao-seed-1-8-251228'
   | 'zai-org/glm-4.7-flash'
   | 'deepseek/deepseek-v3.1'
   | 'qwen/qwen3-coder-480b-a35b-instruct'
   | 'qwen/qwen3-235b-a22b-thinking-2507'
 type ReasoningEffortValue = 'low' | 'medium' | 'high'
 type ToolModeValue = 'auto' | 'off'
-type ModelBrand = 'anthropic' | 'xai' | 'google' | 'openai' | 'moonshot' | 'meta' | 'zai' | 'deepseek' | 'qwen'
+type ModelBrand = 'anthropic' | 'xai' | 'google' | 'openai' | 'minimax' | 'moonshot' | 'doubao' | 'meta' | 'zai' | 'deepseek' | 'qwen'
+type Capability = 'text' | 'image' | 'video' | 'audio'
 type ToneValue =
   | 'professional'
   | 'concise'
@@ -847,29 +956,39 @@ type ChatModelOption = {
   brand: ModelBrand
   brandIcon: string
   company: string
-  feature: string
-  toolCallingLabel: '支持' | '部分' | '未知'|'不支持'
-  multimodalLabel: '支持' | '部分' | '未知'
+  description: string
+  toolCalling: boolean
+  reasoning: boolean
+  structuredOutput: boolean
+  serverless?: boolean
+  inputCapabilities: Capability[]
+  outputCapabilities: Capability[]
+  contextLength?: number
+  maxOutput?: number
 }
 
 const chatModelOptions: ChatModelOption[] = [
-  { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku', brand: 'anthropic', brandIcon: 'A', company: 'Anthropic', feature: '轻量、低延迟，适合日常问答与快速总结。', toolCallingLabel: '支持', multimodalLabel: '支持' },
-  { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku', brand: 'anthropic', brandIcon: 'A', company: 'Anthropic', feature: 'Haiku 新版，代码与推理质量更稳。', toolCallingLabel: '支持', multimodalLabel: '支持' },
-  { value: 'grok-4-1-fast-non-reasoning', label: 'Grok 4.1 Fast', brand: 'xai', brandIcon: 'x', company: 'xAI', feature: '快速响应版本，偏执行效率。', toolCallingLabel: '部分', multimodalLabel: '部分' },
-  { value: 'grok-4-1-fast-reasoning', label: 'Grok 4.1 Reasoning', brand: 'xai', brandIcon: 'x', company: 'xAI', feature: '强化推理版本，适合复杂任务。', toolCallingLabel: '部分', multimodalLabel: '部分' },
-  { value: 'grok-code-fast-1', label: 'Grok Code Fast', brand: 'xai', brandIcon: 'x', company: 'xAI', feature: '偏代码生成与修复，速度优先。', toolCallingLabel: '支持', multimodalLabel: '未知' },
-  { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite', brand: 'google', brandIcon: 'G', company: 'Google', feature: '低成本轻量预览版，适合高并发。', toolCallingLabel: '支持', multimodalLabel: '支持' },
-  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', brand: 'google', brandIcon: 'G', company: 'Google', feature: '通用高性价比，速度与效果均衡。', toolCallingLabel: '支持', multimodalLabel: '支持' },
-  { value: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B', brand: 'openai', brandIcon: 'O', company: 'OpenAI', feature: '开源大参数模型，适合私有化推理。', toolCallingLabel: '支持', multimodalLabel: '未知' },
-  { value: 'gpt-4o-mini', label: 'GPT-4o Mini', brand: 'openai', brandIcon: 'O', company: 'OpenAI', feature: '小型多模态模型，速度快且稳定。', toolCallingLabel: '支持', multimodalLabel: '支持' },
-  { value: 'gpt-5-mini', label: 'GPT-5 Mini', brand: 'openai', brandIcon: 'O', company: 'OpenAI', feature: '新一代轻量模型，日常场景表现均衡。', toolCallingLabel: '支持', multimodalLabel: '支持' },
-  { value: 'gpt-5.1-codex', label: 'GPT-5.1 Codex', brand: 'openai', brandIcon: 'O', company: 'OpenAI', feature: '面向编程任务优化，代码质量更强。', toolCallingLabel: '支持', multimodalLabel: '部分' },
-  { value: 'gpt-5', label: 'GPT-5', brand: 'openai', brandIcon: 'O', company: 'OpenAI', feature: '旗舰通用模型，综合能力最强。', toolCallingLabel: '支持', multimodalLabel: '支持' },
-  { value: 'moonshotai/kimi-k2.5', label: 'Kimi K2.5', brand: 'moonshot', brandIcon: 'K', company: 'Moonshot AI', feature: '长文本与中文任务表现稳定。', toolCallingLabel: '支持', multimodalLabel: '部分' },
-  { value: 'zai-org/glm-4.7-flash', label: 'GLM-4.7 Flash', brand: 'zai', brandIcon: 'Z', company: 'Z.ai', feature: '中文友好，低延迟响应。', toolCallingLabel: '支持', multimodalLabel: '支持' },
-  { value: 'deepseek/deepseek-v3.1', label: 'DeepSeek V3.1', brand: 'deepseek', brandIcon: 'D', company: 'DeepSeek', feature: '文本与代码综合能力较强。', toolCallingLabel: '支持', multimodalLabel: '未知' },
-  { value: 'qwen/qwen3-coder-480b-a35b-instruct', label: 'Qwen3 Coder 480B', brand: 'qwen', brandIcon: 'Q', company: 'Qwen', feature: '超大规模代码模型，复杂工程场景更稳。', toolCallingLabel: '支持', multimodalLabel: '未知' },
-  { value: 'qwen/qwen3-235b-a22b-thinking-2507', label: 'Qwen3 235B Thinking', brand: 'qwen', brandIcon: 'Q', company: 'Qwen', feature: '偏深度思考与复杂推理任务。', toolCallingLabel: '支持', multimodalLabel: '未知' }
+  { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku', brand: 'anthropic', brandIcon: 'A', company: 'Anthropic', description: '轻量级通用模型，适合日常问答、摘要和低延迟响应。', toolCalling: true, reasoning: false, structuredOutput: true, serverless: true, inputCapabilities: ['text', 'image'], outputCapabilities: ['text'] },
+  { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku', brand: 'anthropic', brandIcon: 'A', company: 'Anthropic', description: 'Haiku 系列增强版，在长上下文和稳定输出上更均衡。', toolCalling: true, reasoning: false, structuredOutput: true, serverless: true, inputCapabilities: ['text', 'image'], outputCapabilities: ['text'], contextLength: 200000, maxOutput: 8192 },
+  { value: 'grok-4-1-fast-non-reasoning', label: 'Grok 4.1 Fast', brand: 'xai', brandIcon: 'x', company: 'xAI', description: '偏速度优先的通用版本，适合高频交互和快速生成。', toolCalling: true, reasoning: false, structuredOutput: true, serverless: true, inputCapabilities: ['text', 'image'], outputCapabilities: ['text'], maxOutput: 2000000 },
+  { value: 'grok-4-1-fast-reasoning', label: 'Grok 4.1 Reasoning', brand: 'xai', brandIcon: 'x', company: 'xAI', description: '强化推理版本，更适合复杂分析和多步任务。', toolCalling: true, reasoning: true, structuredOutput: true, serverless: true, inputCapabilities: ['text', 'image'], outputCapabilities: ['text'] },
+  { value: 'grok-code-fast-1', label: 'Grok Code Fast', brand: 'xai', brandIcon: 'x', company: 'xAI', description: '面向编程场景优化，兼顾代码理解、生成和修复速度。', toolCalling: true, reasoning: true, structuredOutput: true, serverless: true, inputCapabilities: ['text', 'image'], outputCapabilities: ['text'] },
+  { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite', brand: 'google', brandIcon: 'G', company: 'Google', description: '轻量多模态模型，适合成本敏感和高并发场景。', toolCalling: true, reasoning: true, structuredOutput: true, serverless: true, inputCapabilities: ['text', 'image', 'video', 'audio'], outputCapabilities: ['text'] },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', brand: 'google', brandIcon: 'G', company: 'Google', description: '通用型多模态模型，在速度、理解和推理间较均衡。', toolCalling: true, reasoning: true, structuredOutput: true, serverless: true, inputCapabilities: ['text', 'image', 'video', 'audio'], outputCapabilities: ['text'] },
+  { value: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B', brand: 'openai', brandIcon: 'O', company: 'OpenAI',
+    description: '大参数开源取向模型，适合需要较强文本和图像理解的任务。',
+    toolCalling: true, reasoning: true, structuredOutput: true, inputCapabilities: ['text'], outputCapabilities: ['text'] },
+  { value: 'gpt-4o-mini', label: 'GPT-4o Mini', brand: 'openai', brandIcon: 'O', company: 'OpenAI', description: '小型多模态模型，响应快，适合常规助手场景。', toolCalling: true, reasoning: false, structuredOutput: true, serverless: true, inputCapabilities: ['text', 'image'], outputCapabilities: ['text'] },
+  { value: 'gpt-5-mini', label: 'GPT-5 Mini', brand: 'openai', brandIcon: 'O', company: 'OpenAI', description: '轻量级新一代模型，适合日常办公、检索和内容生成。', toolCalling: true, reasoning: false, structuredOutput: true, serverless: true, inputCapabilities: ['text', 'image'], outputCapabilities: ['text'] },
+  { value: 'gpt-5.1-codex', label: 'GPT-5.1 Codex', brand: 'openai', brandIcon: 'O', company: 'OpenAI', description: '偏开发与编程任务优化，适合代码生成、重构和调试。', toolCalling: true, reasoning: true, structuredOutput: true, serverless: true, inputCapabilities: ['text', 'image'], outputCapabilities: ['text'] },
+  { value: 'gpt-5', label: 'GPT-5', brand: 'openai', brandIcon: 'O', company: 'OpenAI', description: '旗舰通用模型，适合复杂推理、写作和多步骤任务。', toolCalling: true, reasoning: true, structuredOutput: true, serverless: true, inputCapabilities: ['text', 'image'], outputCapabilities: ['text'] },
+  { value: 'minimax/minimax-m2.5', label: 'MiniMax M2.5', brand: 'minimax', brandIcon: 'M', company: 'MiniMax', description: '中文任务友好的推理模型，适合通用对话与分析场景。', toolCalling: true, reasoning: true, structuredOutput: true, serverless: true, inputCapabilities: ['text'], outputCapabilities: ['text'] },
+  { value: 'moonshotai/kimi-k2.5', label: 'Kimi K2.5', brand: 'moonshot', brandIcon: 'K', company: 'Moonshot AI', description: '适合长文本、多资料整合和中文内容处理。', toolCalling: true, reasoning: true, structuredOutput: true, serverless: true, inputCapabilities: ['text', 'image', 'video'], outputCapabilities: ['text'] },
+  { value: 'doubao-seed-1-8-251228', label: 'Doubao Seed 1.8', brand: 'doubao', brandIcon: 'D', company: 'Doubao', description: '偏中文与内容生成场景，支持图像和视频输入理解。', toolCalling: true, reasoning: true, structuredOutput: true, serverless: true, inputCapabilities: ['text', 'image', 'video'], outputCapabilities: ['text'] },
+  { value: 'zai-org/glm-4.7-flash', label: 'GLM-4.7 Flash', brand: 'zai', brandIcon: 'Z', company: 'Z.ai', description: '中文交互友好，适合低延迟文本生成和问答。', toolCalling: true, reasoning: true, structuredOutput: true, serverless: true, inputCapabilities: ['text'], outputCapabilities: ['text'] },
+  { value: 'deepseek/deepseek-v3.1', label: 'DeepSeek V3.1', brand: 'deepseek', brandIcon: 'D', company: 'DeepSeek', description: '综合能力较强，适合文本写作、分析和代码相关任务。', toolCalling: true, reasoning: true, structuredOutput: true, inputCapabilities: ['text'], outputCapabilities: ['text'] },
+  { value: 'qwen/qwen3-coder-480b-a35b-instruct', label: 'Qwen3 Coder 480B', brand: 'qwen', brandIcon: 'Q', company: 'Qwen', description: '超大规模代码模型，适合复杂工程和代码生成任务。', toolCalling: true, reasoning: false, structuredOutput: true, serverless: true, inputCapabilities: ['text'], outputCapabilities: ['text'] },
+  { value: 'qwen/qwen3-235b-a22b-thinking-2507', label: 'Qwen3 235B Thinking', brand: 'qwen', brandIcon: 'Q', company: 'Qwen', description: '偏深度思考和复杂推理，适合分析型任务。', toolCalling: true, reasoning: true, structuredOutput: true, inputCapabilities: ['text'], outputCapabilities: ['text'] }
 ]
 
 const toneOptions: { value: ToneValue; label: string }[] = [
@@ -1043,6 +1162,32 @@ function selectToolMode(value: ToolModeValue) {
   isToolModeOpen.value = false
 }
 
+function toSupportLabel(value: boolean) {
+  return value ? '支持' : '不支持'
+}
+
+function formatCapabilities(capabilities: Capability[]) {
+  const labels: Record<Capability, string> = {
+    text: '文本',
+    image: '图像',
+    video: '视频',
+    audio: '音频'
+  }
+  return capabilities.map((item) => labels[item]).join('、')
+}
+
+function formatMultimodalLabel(capabilities: Capability[]) {
+  const nonText = capabilities.filter((item) => item !== 'text')
+  return nonText.length ? formatCapabilities(nonText) : '仅文本'
+}
+
+function formatModelSpecs(option: ChatModelOption) {
+  const parts: string[] = []
+  if (option.contextLength) parts.push(`上下文 ${option.contextLength}`)
+  if (option.maxOutput) parts.push(`最大输出 ${option.maxOutput}`)
+  return parts.join(' · ')
+}
+
 const tabs = computed(() => [
   { id: 'general', label: t('general'), icon: '⚙️' },
   { id: 'personalization', label: uiLocale.value === 'en' ? 'Personalization' : '个性化', icon: '🎨' },
@@ -1137,9 +1282,16 @@ function writeLocalSetting(userId: string, s: UserSetting) {
 
 const userId = ref('')
 const setting = reactive<UserSetting>(getDefaultSetting(''))
+const passwordForm = reactive({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
 
 const saveStatus = ref<SaveStatus>('idle')
 const saveError = ref('')
+const passwordSaveStatus = ref<SaveStatus>('idle')
+const passwordSaveError = ref('')
 let hydrating = false
 let saveTimer: number | null = null
 
@@ -1164,6 +1316,64 @@ function resetToDefault() {
   Object.assign(setting, s)
   hydrating = false
   scheduleSave()
+}
+
+function resetPasswordForm() {
+  passwordForm.oldPassword = ''
+  passwordForm.newPassword = ''
+  passwordForm.confirmPassword = ''
+}
+
+async function submitPasswordUpdate() {
+  passwordSaveError.value = ''
+  passwordSaveStatus.value = 'idle'
+
+  const oldPassword = passwordForm.oldPassword.trim()
+  const newPassword = passwordForm.newPassword.trim()
+  const confirmPassword = passwordForm.confirmPassword.trim()
+
+  if (!isLoggedIn()) {
+    passwordSaveStatus.value = 'error'
+    passwordSaveError.value = '请先登录'
+    return
+  }
+  if (!oldPassword || !newPassword || !confirmPassword) {
+    passwordSaveStatus.value = 'error'
+    passwordSaveError.value = '请填写完整的密码信息'
+    return
+  }
+  if (newPassword.length < 6) {
+    passwordSaveStatus.value = 'error'
+    passwordSaveError.value = '新密码至少 6 位'
+    return
+  }
+  if (newPassword !== confirmPassword) {
+    passwordSaveStatus.value = 'error'
+    passwordSaveError.value = '两次输入的新密码不一致'
+    return
+  }
+
+  passwordSaveStatus.value = 'saving'
+  try {
+    const { ok, json } = await apiFetch('/api/user/password/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        oldPassword,
+        newPassword,
+        confirmPassword
+      })
+    })
+    if (!ok) {
+      const msg = (json as any)?.message ?? (json as any)?.msg ?? ''
+      throw new Error(msg || '请求失败')
+    }
+    passwordSaveStatus.value = 'saved'
+    resetPasswordForm()
+  } catch (e) {
+    passwordSaveStatus.value = 'error'
+    passwordSaveError.value = e instanceof Error ? e.message : String(e)
+  }
 }
 
 async function fetchRemoteSetting() {
@@ -1662,7 +1872,9 @@ onMounted(async () => {
 .brand-xai { background: #111827; }
 .brand-google { background: #2563eb; }
 .brand-openai { background: #0f766e; }
+.brand-minimax { background: #dc2626; }
 .brand-moonshot { background: #7c3aed; }
+.brand-doubao { background: #ea580c; }
 .brand-meta { background: #0284c7; }
 .brand-zai { background: #c2410c; }
 .brand-deepseek { background: #1d4ed8; }
@@ -1695,11 +1907,18 @@ onMounted(async () => {
   color: var(--text-muted);
 }
 
-.settings-model-feature {
+.settings-model-id {
   margin-top: 0.4rem;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.settings-model-desc {
+  margin-top: 0.45rem;
   font-size: 0.75rem;
   color: var(--text-secondary);
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .settings-model-meta {
@@ -1716,6 +1935,50 @@ onMounted(async () => {
   border: 1px solid var(--border-medium);
   border-radius: 999px;
   padding: 0.15rem 0.45rem;
+}
+
+.settings-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+}
+
+.settings-form-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.settings-form-input {
+  width: 100%;
+  height: 38px;
+  border: 1px solid var(--border-medium);
+  border-radius: 10px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 0 0.75rem;
+  box-sizing: border-box;
+}
+
+.settings-form-input:focus {
+  outline: 2px solid var(--primary-alpha);
+  border-color: var(--primary);
+}
+
+.settings-btn-primary {
+  height: 34px;
+  padding: 0 0.9rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.settings-btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .settings-dropdown-check {

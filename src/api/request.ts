@@ -7,6 +7,7 @@ const REFRESH_URL = '/api/user/refresh'
 
 export interface RefreshResponse {
   accessToken: string
+  data?: string | { accessToken?: string }
 }
 
 type PendingRequest = {
@@ -114,10 +115,18 @@ function createAxiosInstance(): AxiosInstance {
 
 async function doRefreshToken(refreshToken: string): Promise<string> {
   const resp = await axios.post<RefreshResponse>(REFRESH_URL, { refreshToken })
-  if (!resp.data?.accessToken) {
+  const accessToken =
+    (typeof resp.data?.accessToken === 'string' && resp.data.accessToken) ||
+    (typeof resp.data?.data === 'string' && resp.data.data) ||
+    (typeof resp.data?.data === 'object' &&
+    typeof (resp.data.data as { accessToken?: string })?.accessToken === 'string'
+      ? (resp.data.data as { accessToken?: string }).accessToken
+      : '')
+
+  if (!accessToken) {
     throw new Error('刷新 token 失败：未返回 accessToken')
   }
-  return resp.data.accessToken
+  return accessToken
 }
 
 function handleRefreshFailed() {

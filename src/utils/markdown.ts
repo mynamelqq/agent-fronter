@@ -1,5 +1,5 @@
 import MarkdownIt from 'markdown-it'
-import mk from 'markdown-it-katex'
+import katex from 'katex'
 
 const config = {
   html: true,
@@ -8,7 +8,117 @@ const config = {
   linkify: false,
 }
 
-const markdownIt = new MarkdownIt(config).use(mk)
+function isValidInlineDelim(state: any, pos: number): boolean {
+  const prevChar = pos > 0 ? state.src.charCodeAt(pos - 1) : -1
+  const nextChar = pos + 1 < state.posMax ? state.src.charCodeAt(pos + 1) : -1
+  if (prevChar === 0x5c) return false
+  if (nextChar === 0x20 || nextChar === 0x09) return false
+  return true
+}
+
+function mathInline(state: any, silent: boolean): boolean {
+  if (state.src[state.pos] !== '$') return false
+  if (!isValidInlineDelim(state, state.pos)) return false
+
+  let start = state.pos + 1
+  let match = start
+
+  while ((match = state.src.indexOf('$', match)) !== -1) {
+    let backslashes = 0
+    let pos = match - 1
+    while (pos >= 0 && state.src[pos] === '\\') {
+      backslashes++
+      pos--
+    }
+    if (backslashes % 2 === 0) break
+    match += 1
+  }
+
+  if (match === -1) return false
+  if (match === start) return false
+  if (state.src[match - 1] === ' ' || state.src[match - 1] === '\t') return false
+
+  if (!silent) {
+    const token = state.push('math_inline', 'math', 0)
+    token.markup = '$'
+    token.content = state.src.slice(start, match)
+  }
+
+  state.pos = match + 1
+  return true
+}
+
+function mathBlock(state: any, startLine: number, endLine: number, silent: boolean): boolean {
+  let pos = state.bMarks[startLine] + state.tShift[startLine]
+  let max = state.eMarks[startLine]
+
+  if (pos + 2 > max) return false
+  if (state.src.slice(pos, pos + 2) !== '$$') return false
+
+  pos += 2
+  let firstLine = state.src.slice(pos, max)
+  let found = false
+  let nextLine = startLine
+  let lastLine = ''
+
+  if (firstLine.trim().endsWith('$$')) {
+    firstLine = firstLine.trim().slice(0, -2)
+    found = true
+  }
+
+  while (!found) {
+    nextLine++
+    if (nextLine >= endLine) return false
+
+    pos = state.bMarks[nextLine] + state.tShift[nextLine]
+    max = state.eMarks[nextLine]
+    const lineText = state.src.slice(pos, max)
+
+    if (lineText.trim().endsWith('$$')) {
+      lastLine = lineText.trim().slice(0, -2)
+      found = true
+    } else {
+      lastLine += (lastLine ? '\n' : '') + lineText
+    }
+  }
+
+  if (silent) return true
+
+  const token = state.push('math_block', 'math', 0)
+  token.block = true
+  token.content = (firstLine && lastLine)
+    ? `${firstLine}\n${lastLine}`
+    : (firstLine || lastLine)
+  token.map = [startLine, nextLine + 1]
+  token.markup = '$$'
+  state.line = nextLine + 1
+  return true
+}
+
+function mathPlugin(md: MarkdownIt): void {
+  md.inline.ruler.after('escape', 'math_inline', mathInline)
+  md.block.ruler.after('blockquote', 'math_block', mathBlock, {
+    alt: ['paragraph', 'reference', 'blockquote', 'list'],
+  })
+
+  md.renderer.rules.math_inline = (tokens, idx) =>
+    katex.renderToString(tokens[idx].content, {
+      throwOnError: false,
+      displayMode: false,
+      output: 'htmlAndMathml',
+      strict: 'ignore',
+    })
+
+  md.renderer.rules.math_block = (tokens, idx) =>
+    `${katex.renderToString(tokens[idx].content, {
+      throwOnError: false,
+      displayMode: true,
+      output: 'htmlAndMathml',
+      strict: 'ignore',
+    })}\n`
+}
+
+const markdownIt = new MarkdownIt(config).use(mathPlugin)
 
 /**
  * 流式渲染时的 bad case：末尾 "\n- " 在后续内容到达前会被误解析为标题等，导致闪动

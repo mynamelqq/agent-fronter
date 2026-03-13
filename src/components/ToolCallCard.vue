@@ -2,8 +2,16 @@
   <div class="tool-card" :class="{ collapsed }">
     <!-- 头部：图标、工具名、状态、折叠箭头 -->
     <div class="card-header" @click="collapsed = !collapsed">
-      <div class="tool-icon">🔧</div>
-      <span class="tool-name">{{ toolName }}</span>
+      <div class="tool-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" role="img" focusable="false">
+          <path
+            fill="currentColor"
+            d="M20.47 6.62a5.5 5.5 0 0 1-7.05 6.9l-6.36 6.35a1.75 1.75 0 1 1-2.47-2.47l6.35-6.36a5.5 5.5 0 0 1 6.9-7.04l-2.9 2.9a1.75 1.75 0 0 0 2.47 2.47l2.9-2.9Z"
+          />
+        </svg>
+      </div>
+      <span class="tool-name">{{ resolvedToolName }}</span>
+      <span v-if="summaryText" class="tool-summary" :title="summaryText">{{ summaryText }}</span>
       <div class="status-badge" :class="statusClass">
         <div class="status-dot"></div>
         {{ statusText }}
@@ -15,7 +23,7 @@
     <div class="card-body" ref="bodyRef">
       <!-- 入参 -->
       <div class="section">
-        <div class="section-label">入参</div>
+        <div class="section-label">{{ argsLabel }}</div>
         <template v-if="paramRows.length">
           <div v-for="(row, i) in paramRows" :key="i" class="param-row">
             <span class="param-key">{{ row.key }}</span>
@@ -27,7 +35,7 @@
 
       <!-- 结果 -->
       <div class="section">
-        <div class="section-label">结果</div>
+        <div class="section-label">{{ resultLabel }}</div>
         <!-- 终端工具且失败：错误横幅 + 下方仍显示完整 JSON -->
         <div v-if="isTerminalResult && terminalError" class="error-banner">
           <span class="error-icon">⛔</span>
@@ -45,7 +53,7 @@
               <pre class="terminal-pre">{{ resultObj.stderr }}</pre>
             </div>
             <div v-if="!resultObj.stdout && !resultObj.stderr && resultObj.success === true" class="terminal-empty">
-              命令已成功执行，无输出
+              {{ terminalEmptyLabel }}
             </div>
           </div>
         </template>
@@ -54,7 +62,7 @@
           <div class="result-block json-block" v-html="highlightJson(resultJson)"></div>
         </template>
         <!-- 运行中 -->
-        <div v-else class="result-block result-waiting">等待执行完成…</div>
+        <div v-else class="result-block result-waiting">{{ waitingLabel }}</div>
       </div>
     </div>
 
@@ -80,26 +88,44 @@ interface TerminalResult {
   command?: string
   cwd?: string
 }
+type LangMode = 'zh' | 'en' | 'bilingual'
 
 const props = withDefaults(
   defineProps<{
     toolName: string
+    displayName?: string
+    langMode?: LangMode
     args?: string
     result?: string | null
     /** 单次工具调用耗时（毫秒），由后端 cost 字段提供 */
     cost?: number
   }>(),
-  { args: '', result: null }
+  { args: '', result: null, langMode: 'zh' }
 )
 
 const bodyRef = ref<HTMLElement | null>(null)
 const collapsed = ref(true)
-const copyBtnText = ref('复制结果')
+const copyBtnText = ref('')
 
 /** 是否为终端/执行命令类工具（前端调用 execTerminal 等） */
 const TERMINAL_TOOL_NAMES = ['execute_command', 'exec_terminal', 'exec_command', 'execTerminal', 'executeCommand']
 
 const hasResult = computed(() => !!props.result)
+const resolvedToolName = computed(() => props.displayName || props.toolName)
+const isZh = computed(() => props.langMode === 'zh')
+const isEn = computed(() => props.langMode === 'en')
+const argsLabel = computed(() => (isEn.value ? 'Args' : isZh.value ? '入参' : '入参 / Args'))
+const resultLabel = computed(() => (isEn.value ? 'Result' : isZh.value ? '结果' : '结果 / Result'))
+const waitingLabel = computed(() => (isEn.value ? 'Waiting for execution...' : isZh.value ? '等待执行完成…' : '等待执行完成 / Waiting...'))
+const terminalEmptyLabel = computed(() => (isEn.value ? 'Command succeeded with no output' : isZh.value ? '命令已成功执行，无输出' : '命令已成功执行，无输出 / Command succeeded with no output'))
+const summaryText = computed(() => {
+  const a = summarizeArgs(props.args)
+  const r = summarizeResult(props.result)
+  if (a && r) return `${a} -> ${r}`
+  if (a) return a
+  if (r) return r
+  return ''
+})
 
 function parseJson(str: string | null | undefined): unknown {
   if (!str) return null
@@ -118,10 +144,10 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (!hasResult.value) return '运行中'
+  if (!hasResult.value) return isEn.value ? 'Running' : isZh.value ? '运行中' : '运行中 / Running'
   const obj = parseJson(props.result) as Record<string, unknown> | null
-  if (!obj || obj.success == true) return '已完成'
-  return '失败'
+  if (!obj || obj.success == true) return isEn.value ? 'Done' : isZh.value ? '已完成' : '已完成 / Done'
+  return isEn.value ? 'Failed' : isZh.value ? '失败' : '失败 / Failed'
 })
 
 const costLabel = computed(() => {
@@ -183,7 +209,7 @@ const resultJson = computed(() => {
 })
 
 const footerMeta = computed(() => {
-  if (!hasResult.value) return 'running…'
+  if (!hasResult.value) return isEn.value ? 'running…' : isZh.value ? '运行中…' : '运行中 / running…'
   const obj = resultObj.value
   if (obj && 'exitCode' in obj) {
     const exitCode = obj.exitCode
@@ -228,10 +254,72 @@ function copyResult() {
   const block = card?.querySelector('.result-block:not(.result-waiting)')
   const text = block?.textContent?.trim() ?? resultJson.value
   navigator.clipboard.writeText(text).then(() => {
-    copyBtnText.value = '已复制 ✓'
-    setTimeout(() => (copyBtnText.value = '复制结果'), 1500)
+    copyBtnText.value = isEn.value ? 'Copied ✓' : isZh.value ? '已复制 ✓' : '已复制 / Copied ✓'
+    setTimeout(() => {
+      copyBtnText.value = isEn.value ? 'Copy Result' : isZh.value ? '复制结果' : '复制结果 / Copy'
+    }, 1500)
   })
 }
+
+function shortText(s: string, max = 56): string {
+  const t = String(s || '').replace(/\s+/g, ' ').trim()
+  if (!t) return ''
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t
+}
+
+function summarizeArgs(args?: string): string {
+  if (!args) return ''
+  const obj = parseJson(args)
+  if (!obj || typeof obj !== 'object') return shortText(args, 42)
+  const o = obj as Record<string, unknown>
+  const keys = ['query', 'keyword', 'keywords', 'command', 'prompt', 'text', 'location', 'address', 'city', 'url', 'path', 'fileName', 'name']
+  for (const k of keys) {
+    const v = o[k]
+    if (typeof v === 'string' && v.trim()) return shortText(v, 42)
+    if (typeof v === 'number' || typeof v === 'boolean') return `${k}=${String(v)}`
+  }
+  const first = Object.entries(o).find(([, v]) => typeof v === 'string' && String(v).trim())
+  if (first) return shortText(String(first[1]), 42)
+  return ''
+}
+
+function summarizeResult(result?: string | null): string {
+  if (!result) return ''
+  const parsed = parseJson(result)
+  if (Array.isArray(parsed)) {
+    return isEn.value ? `${parsed.length} items` : isZh.value ? `${parsed.length} 条结果` : `${parsed.length} results`
+  }
+  if (parsed && typeof parsed === 'object') {
+    const o = parsed as Record<string, unknown>
+    const listKeys = ['results', 'items', 'list', 'rows', 'hits', 'pois', 'data']
+    for (const k of listKeys) {
+      const v = o[k]
+      if (Array.isArray(v)) {
+        const n = v.length
+        return isEn.value ? `${n} items` : isZh.value ? `${n} 条结果` : `${n} results`
+      }
+    }
+    if (typeof o.count === 'number') {
+      const n = o.count
+      return isEn.value ? `${n} items` : isZh.value ? `${n} 条结果` : `${n} results`
+    }
+    if (typeof o.total === 'number') {
+      const n = o.total
+      return isEn.value ? `${n} total` : isZh.value ? `共 ${n} 条` : `${n} total`
+    }
+    const msg = o.summary ?? o.message ?? o.content
+    if (typeof msg === 'string' && msg.trim()) return shortText(msg, 42)
+  }
+  return shortText(result, 42)
+}
+
+watch(
+  () => props.langMode,
+  () => {
+    copyBtnText.value = isEn.value ? 'Copy Result' : isZh.value ? '复制结果' : '复制结果 / Copy'
+  },
+  { immediate: true }
+)
 
 function updateBodyHeight() {
   const el = bodyRef.value
@@ -269,7 +357,7 @@ watch(
 
 .tool-card {
   width: 100%;
-  max-width: 680px;
+  max-width: 580px;
   background: #fafafa;
   border: 1px solid #e8e8ec;
   border-radius: 10px;
@@ -306,13 +394,19 @@ watch(
   width: 24px;
   height: 24px;
   border-radius: 6px;
-  background: #ebebef;
-  border: 1px solid #e0e0e5;
+  background: linear-gradient(180deg, #eef4ff 0%, #e2ecff 100%);
+  border: 1px solid #c8d7ff;
+  color: #3157c7;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
   flex-shrink: 0;
+}
+
+.tool-icon svg {
+  width: 14px;
+  height: 14px;
 }
 
 .tool-name {
@@ -320,7 +414,17 @@ watch(
   font-weight: 500;
   color: #374151;
   letter-spacing: 0.01em;
+  flex: 0 0 auto;
+}
+
+.tool-summary {
   flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tool-cost {
@@ -341,9 +445,9 @@ watch(
 }
 
 .status-badge.success {
-  background: rgba(34, 197, 94, 0.08);
-  color: #059669;
-  border: 1px solid rgba(34, 197, 94, 0.18);
+  background: rgba(15, 118, 110, 0.09);
+  color: #0f766e;
+  border: 1px solid rgba(15, 118, 110, 0.2);
 }
 
 .status-badge.error {
@@ -365,7 +469,7 @@ watch(
 }
 
 .status-badge.success .status-dot {
-  background: #059669;
+  background: #0f766e;
 }
 
 .status-badge.error .status-dot,

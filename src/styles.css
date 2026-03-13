@@ -66,20 +66,20 @@
   --text-code:      var(--slate-800);
 
   /* 馃幁 鐣岄潰鑹插僵 */
-  --bg-primary:     #ffffff;
-  --bg-secondary:   var(--slate-50);
-  --bg-tertiary:    var(--slate-100);
-  --bg-sidebar:     var(--slate-100);
-  --bg-chat:        #ffffff;
+  --bg-primary:     #f7f8fa;
+  --bg-secondary:   #f2f4f7;
+  --bg-tertiary:    #eceff4;
+  --bg-sidebar:     #f4f6f9;
+  --bg-chat:        #f7f8fa;
   --bg-code:        var(--slate-50);
 
   /* 渚ф爮涓婚锛堟祬鑹叉ā寮忥細娴呰壊渚ф爮锛?*/
   --sidebar-text:        var(--slate-900);
   --sidebar-text-muted:  var(--slate-600);
   --sidebar-border:      var(--slate-200);
-  --sidebar-hover-bg:    rgba(0, 0, 0, 0.06);
-  --sidebar-active-bg:   rgba(0, 0, 0, 0.08);
-  --sidebar-active-border: var(--slate-300);
+  --sidebar-hover-bg:    rgba(76, 96, 122, 0.08);
+  --sidebar-active-bg:   rgba(93, 117, 153, 0.14);
+  --sidebar-active-border: #a6b6cb;
 
   --border-light:   var(--slate-200);
   --border-medium:  var(--slate-300);
@@ -229,7 +229,7 @@ img, video {
 .sidebar {
   width: 280px;
   flex-shrink: 0;
-  background: var(--bg-sidebar);
+  background: linear-gradient(180deg, #f6f8fb 0%, #f2f5f9 100%);
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--sidebar-border);
@@ -270,7 +270,7 @@ img, video {
   width: 36px;
   height: 36px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, #93c5fd, #60a5fa);
+  background: linear-gradient(135deg, #9ab1cb, #7f9bbd);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -298,7 +298,7 @@ img, video {
   color: var(--sidebar-text);
   text-decoration: none;
   cursor: pointer;
-  transition: background var(--duration-fast) var(--easing-smooth), color var(--duration-fast);
+  transition: background var(--duration-fast) var(--easing-smooth), color var(--duration-fast), border-color var(--duration-fast);
   background: transparent;
   font-size: 0.875rem;
   font-weight: 500;
@@ -313,8 +313,14 @@ img, video {
 }
 
 .sidebar-menu-item.router-link-active {
-  background: var(--sidebar-active-bg);
+  background: linear-gradient(
+    90deg,
+    rgba(93, 117, 153, 0.2) 0%,
+    rgba(93, 117, 153, 0.12) 100%
+  );
   color: var(--sidebar-text);
+  border: 1px solid var(--sidebar-active-border);
+  box-shadow: inset 3px 0 0 #5d7599;
 }
 
 .sidebar-menu-item:first-child:hover {
@@ -592,26 +598,30 @@ img, video {
   position: relative;
   color: var(--sidebar-text);
   border: 1px solid color-mix(in srgb, var(--sidebar-border) 80%, transparent);
-  background: color-mix(in srgb, var(--bg-sidebar) 88%, white 12%);
+  background: color-mix(in srgb, var(--bg-sidebar) 84%, white 16%);
 }
 
 .session-item:hover {
-  background: color-mix(in srgb, var(--sidebar-hover-bg) 86%, white 14%);
+  background: color-mix(in srgb, var(--sidebar-hover-bg) 74%, white 26%);
   color: var(--sidebar-text);
   border-color: color-mix(in srgb, var(--sidebar-active-border) 50%, transparent);
 }
 
 .session-item.active {
-  background: color-mix(in srgb, var(--sidebar-active-bg) 90%, white 10%);
+  background: linear-gradient(
+    90deg,
+    rgba(93, 117, 153, 0.2) 0%,
+    rgba(93, 117, 153, 0.11) 100%
+  );
   color: var(--sidebar-text);
   border-color: var(--sidebar-active-border);
-  box-shadow: 0 8px 20px -16px rgba(15, 23, 42, 0.45);
+  box-shadow: inset 3px 0 0 #5d7599, 0 8px 20px -16px rgba(15, 23, 42, 0.38);
 }
 
 /* 馃 鏅鸿兘浣撲細璇濈壒娈婃牱寮忥紙鐏拌皟锛屼笌渚ф爮鐧?鐏颁富鑹蹭竴鑷达級 */
 .session-item.agent-session {
-  background: rgba(0, 0, 0, 0.04);
-  border-left: 3px solid var(--slate-300);
+  background: rgba(97, 118, 146, 0.08);
+  border-left: 3px solid #b5c6da;
 }
 
 .session-item.agent-session:hover {
@@ -621,9 +631,13 @@ img, video {
 }
 
 .session-item.agent-session.active {
-  background: var(--sidebar-active-bg);
+  background: linear-gradient(
+    90deg,
+    rgba(93, 117, 153, 0.2) 0%,
+    rgba(93, 117, 153, 0.11) 100%
+  );
   border-color: var(--sidebar-active-border);
-  box-shadow: var(--shadow-sm);
+  box-shadow: inset 3px 0 0 #5d7599, var(--shadow-sm);
 }
 
 /* 鏅鸿兘浣撳垪琛細ChatGPT/Claude 椋庢牸锛屾爣棰?+ 鏃堕棿涓€琛岋紝鏃?URL/棰勮锛宧over 鏄剧ず鏇村 */
@@ -1333,11 +1347,11 @@ img, video {
 
 /* 馃М KaTeX 鏁板鍏紡鏍峰紡澧炲己 */
 .katex-display {
-  margin: var(--spacing-lg) 0;
-  padding: var(--spacing-md);
-  background: var(--bg-secondary);
-  border-radius: var(--radius-md);
+  margin: 1em 0;
   overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.2em 0;
+  -webkit-overflow-scrolling: touch;
   animation: formulaFadeIn 0.4s ease-out;
 }
 
@@ -1352,13 +1366,32 @@ img, video {
   }
 }
 
+.message-content .katex,
+.message-content .katex * {
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+}
+
 .katex {
-  font-size: 1.1em;
+  font-size: 1em;
+  line-height: 1;
+  text-indent: 0;
+  white-space: nowrap;
+}
+
+.katex-display > .katex {
+  display: inline-block;
+  max-width: none;
+  white-space: nowrap;
 }
 
 /* 琛屽唴鍏紡 */
 .katex-inline {
+  display: inline-block;
   padding: 0 2px;
+  max-width: 100%;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 /* 鍏紡娓叉煋閿欒鏍峰紡 */
@@ -1946,6 +1979,21 @@ button.primary:disabled {
 .message-action:hover {
   background: rgba(0, 0, 0, 0.1);
   color: var(--text-secondary);
+}
+
+.message-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.message-action-active {
+  background: rgba(245, 158, 11, 0.14);
+  color: #d97706;
+}
+
+.message-action-active:hover {
+  background: rgba(245, 158, 11, 0.2);
+  color: #b45309;
 }
 
 .message-action-tts-active {

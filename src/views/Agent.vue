@@ -62,7 +62,24 @@
                     <span class="file-tool-loading-icon">⏳</span>
                     <span>正在生成文件…</span>
                   </div>
-                  <ToolCallCard v-else v-bind="tc" />
+                  <McpToolCallCard
+                    v-else-if="tc.isMcp"
+                    :toolName="tc.toolName"
+                    :displayName="getToolDisplayName(tc.toolName)"
+                    :langMode="toolLangMode"
+                    :args="tc.args"
+                    :result="tc.result"
+                    :cost="tc.cost"
+                  />
+                  <ToolCallCard
+                    v-else
+                    :toolName="tc.toolName"
+                    :displayName="getToolDisplayName(tc.toolName)"
+                    :langMode="toolLangMode"
+                    :args="tc.args"
+                    :result="tc.result"
+                    :cost="tc.cost"
+                  />
                 </template>
               </template>
 
@@ -92,9 +109,31 @@
                     <span class="file-tool-loading-icon">⏳</span>
                     <span>正在生成文件…</span>
                   </div>
-                  <ToolCallCard v-else v-bind="tc" />
+                  <McpToolCallCard
+                    v-else-if="tc.isMcp"
+                    :toolName="tc.toolName"
+                    :displayName="getToolDisplayName(tc.toolName)"
+                    :langMode="toolLangMode"
+                    :args="tc.args"
+                    :result="tc.result"
+                    :cost="tc.cost"
+                  />
+                  <ToolCallCard
+                    v-else
+                    :toolName="tc.toolName"
+                    :displayName="getToolDisplayName(tc.toolName)"
+                    :langMode="toolLangMode"
+                    :args="tc.args"
+                    :result="tc.result"
+                    :cost="tc.cost"
+                  />
                 </template>
               </template>
+
+              <div v-if="msg.attachmentLoading" class="attachment-loading">
+                <span class="attachment-loading-text">正在读取附件...</span>
+                <span class="attachment-loading-wave" aria-hidden="true"></span>
+              </div>
 
               <!-- 正文内容（流式时用 markdown 流式渲染） -->
               <div class="message-content assistant-body" v-html="getAssistantMessageHtml(msg, idx)"></div>
@@ -136,6 +175,7 @@
           <div
             v-else-if="isRunning
               && !currentMessage.content
+              && !currentMessage.attachmentLoading
               && !(currentMessage.steps && currentMessage.steps.length)
               && !currentStep.reasoning
               && !(currentStep.tools && currentStep.tools.length)"
@@ -156,9 +196,17 @@
               :key="item.id"
               class="attach-card"
             >
-              <div class="attach-card-icon">
+              <button
+                v-if="item.file.type.startsWith('image/') && item.status === 'done' && item.fileUrl"
+                type="button"
+                class="attach-card-icon attach-card-preview-btn"
+                @click="openAgentImagePreview(item.fileUrl, item.file.name)"
+              >
+                <img :src="item.fileUrl" class="attach-card-img" :alt="item.file.name" />
+              </button>
+              <div v-else class="attach-card-icon">
                 <template v-if="item.file.type.startsWith('image/') && item.status === 'done' && item.fileUrl">
-                  <img :src="item.fileUrl" class="attach-card-img" alt="" />
+                  <img :src="item.fileUrl" class="attach-card-img" :alt="item.file.name" />
                 </template>
                 <template v-else>
                   <span class="attach-card-file-icon" :class="{ 'is-text': isAgentTextLikeFile(item.file.name, item.file.type) }">
@@ -367,6 +415,15 @@
       <span class="toast-icon">⚠️</span>
       <span class="toast-text">{{ warnMessage }}</span>
     </div>
+    <Teleport to="body">
+      <div v-if="agentImagePreview.visible" class="image-preview-backdrop" @click="closeAgentImagePreview">
+        <div class="image-preview-dialog" @click.stop>
+          <button type="button" class="image-preview-close" @click="closeAgentImagePreview" aria-label="关闭">✕</button>
+          <img :src="agentImagePreview.src" :alt="agentImagePreview.name" class="image-preview-img" />
+          <div v-if="agentImagePreview.name" class="image-preview-name">{{ agentImagePreview.name }}</div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -380,10 +437,12 @@ import { uploadFile } from '../api/upload'
 import { compressMediaAttachment, isAllowedVideoFormat } from '../utils/attachment-compress'
 import Think from '../components/Think.vue'
 import ToolCallCard from '../components/ToolCallCard.vue'
+import McpToolCallCard from '../components/McpToolCallCard.vue'
 import GeneratedFileCard from '../components/GeneratedFileCard.vue'
 import AgentHome from '../components/AgentHome.vue'
 import NotificationCenter from '../components/NotificationCenter.vue'
 import { transformMarkdownForStream } from '../utils/markdown'
+import { useUiLanguage } from '../composables/useUiLanguage'
 
 const getAsrWsUrl = (): string => {
   const env = (import.meta as any).env
@@ -412,6 +471,7 @@ interface ToolCallItem {
   toolName: string
   args: string
   result: string | null
+  isMcp?: boolean
   /** 单次工具执行耗时（毫秒），由 tool_result.cost 提供 */
   cost?: number
 }
@@ -465,6 +525,8 @@ interface Message {
   content: string
   /** 本条助手消息的推理阶段(step) 列表 */
   steps?: MessageStep[]
+  /** 当前助手消息是否处于附件读取阶段 */
+  attachmentLoading?: boolean
   thinkingExpanded?: boolean
   /** 整体推理耗时（毫秒），用于在推理卡片头部展示 */
   thinkingTime?: number
@@ -486,9 +548,63 @@ interface UsageStats {
   tokens?: number
 }
 
+interface AgentToolEventPayload {
+  toolCallId?: string
+  toolName?: string
+  content?: string
+  meta?: Record<string, unknown>
+  cost?: number
+}
+
+type ToolLangMode = 'zh' | 'en' | 'bilingual'
+const TOOL_NAME_ZH_MAP: Record<string, string> = {
+  maps_around_search: '周边地点搜索',
+  maps_text_search: '地点文本搜索',
+  maps_search_detail: '地点详情查询',
+  maps_geo: '地址转坐标',
+  maps_regeocode: '坐标转地址',
+  maps_ip_location: 'IP 定位',
+  maps_bicycling: '骑行路线规划',
+  maps_direction_driving: '驾车路线规划',
+  maps_direction_walking: '步行路线规划',
+  maps_direction_transit_integrated: '公交路线规划',
+  maps_direction_transit: '公交路线规划',
+  maps_distance: '距离测量',
+  maps_weather: '天气查询',
+  execute_command: '执行命令',
+  writeFile: '写入文件',
+  generatePDF: '生成 PDF',
+  generateExcel: '生成 Excel'
+}
+
+const normalizeToolName = (name: string): string => (name || '').trim()
+const getToolZhName = (toolName: string): string => {
+  const raw = normalizeToolName(toolName)
+  if (!raw) return '未知工具'
+  const direct = TOOL_NAME_ZH_MAP[raw]
+  if (direct) return direct
+  const lower = raw.toLowerCase()
+  const lowerHit = Object.entries(TOOL_NAME_ZH_MAP).find(([k]) => k.toLowerCase() === lower)
+  return lowerHit?.[1] || raw
+}
+const { uiLocale } = useUiLanguage()
+const toolLangMode = computed<ToolLangMode>(() => (uiLocale.value === 'en' ? 'en' : 'zh'))
+function getToolDisplayName(toolName: string): string {
+  const raw = normalizeToolName(toolName) || 'unknown'
+  const zh = getToolZhName(raw)
+  if (toolLangMode.value === 'en') return raw
+  if (toolLangMode.value === 'bilingual') {
+    return zh === raw ? raw : `${zh} (${raw})`
+  }
+  return zh
+}
+
 const FILE_TOOL_NAMES = ['writeFile', 'generatePDF', 'generateExcel']
 function isFileTool(toolName: string): boolean {
   return FILE_TOOL_NAMES.some((n) => (toolName || '').toLowerCase() === n.toLowerCase())
+}
+function isMcpToolName(toolName: string): boolean {
+  return (toolName || '').trim().toLowerCase().startsWith('maps')
 }
 function getExt(pathOrName: string): string {
   if (!pathOrName) return ''
@@ -581,6 +697,110 @@ function getParsedFiles(tc: ToolCallItem): ParsedFileItem[] {
   return parseFileToolResult(tc.toolName, tc.result)
 }
 
+function parseAgentToolEventPayload(data: string): AgentToolEventPayload {
+  if (!data || typeof data !== 'string') return {}
+  const raw = data.trim()
+  if (!raw) return {}
+  try {
+    const parsed = JSON.parse(raw)
+    return (parsed && typeof parsed === 'object') ? (parsed as AgentToolEventPayload) : { content: raw }
+  } catch {
+    return { content: raw }
+  }
+}
+
+function getAgentToolName(payload: AgentToolEventPayload): string {
+  const direct = payload.toolName
+  if (typeof direct === 'string' && direct.trim()) return direct.trim()
+  const metaToolName = payload.meta?.toolName
+  return typeof metaToolName === 'string' ? metaToolName.trim() : ''
+}
+
+function getAgentToolCallId(payload: AgentToolEventPayload): string | undefined {
+  const direct = payload.toolCallId
+  if (typeof direct === 'string' && direct.trim()) return direct.trim()
+  const metaToolCallId = payload.meta?.toolCallId
+  return typeof metaToolCallId === 'string' && metaToolCallId.trim() ? metaToolCallId.trim() : undefined
+}
+
+function getAgentToolContent(payload: AgentToolEventPayload): string {
+  if (typeof payload.content === 'string') return payload.content
+  if (payload.content != null) {
+    try {
+      return JSON.stringify(payload.content)
+    } catch {
+      return String(payload.content)
+    }
+  }
+  return ''
+}
+
+function matchesMcpKind(item: ToolCallItem, isMcpResult: boolean): boolean {
+  return !!item.isMcp === !!isMcpResult
+}
+
+function findPendingToolCallInList(
+  tools: ToolCallItem[] | undefined,
+  opts: { toolCallId?: string; toolName?: string; isMcpResult: boolean }
+): ToolCallItem | undefined {
+  if (!tools?.length) return undefined
+
+  if (opts.toolCallId) {
+    for (let i = tools.length - 1; i >= 0; i--) {
+      const tool = tools[i]
+      if (tool.toolCallId === opts.toolCallId && matchesMcpKind(tool, opts.isMcpResult)) {
+        return tool
+      }
+    }
+  }
+
+  if (opts.toolName) {
+    for (let i = tools.length - 1; i >= 0; i--) {
+      const tool = tools[i]
+      if (
+        tool.result == null &&
+        tool.toolName === opts.toolName &&
+        matchesMcpKind(tool, opts.isMcpResult)
+      ) {
+        return tool
+      }
+    }
+  }
+
+  for (let i = tools.length - 1; i >= 0; i--) {
+    const tool = tools[i]
+    if (tool.result == null && matchesMcpKind(tool, opts.isMcpResult)) {
+      return tool
+    }
+  }
+
+  for (let i = tools.length - 1; i >= 0; i--) {
+    const tool = tools[i]
+    if (tool.result == null) {
+      return tool
+    }
+  }
+
+  return undefined
+}
+
+function findPendingToolCall(
+  currentTools: ToolCallItem[] | undefined,
+  steps: MessageStep[] | undefined,
+  opts: { toolCallId?: string; toolName?: string; isMcpResult: boolean }
+): ToolCallItem | undefined {
+  const inCurrent = findPendingToolCallInList(currentTools, opts)
+  if (inCurrent) return inCurrent
+  if (!steps?.length) return undefined
+
+  for (let si = steps.length - 1; si >= 0; si--) {
+    const inStep = findPendingToolCallInList(steps[si].tools, opts)
+    if (inStep) return inStep
+  }
+
+  return undefined
+}
+
 // 创建会话 API 返回（与后端 AgentSessionVO 一致；sessionId 用 string 避免精度丢失）
 interface AgentSessionVO {
   sessionId: string | number
@@ -610,6 +830,7 @@ const currentMessage = reactive<Message>({
   role: 'assistant',
   content: '',
   steps: [],
+  attachmentLoading: false,
   thinkingExpanded: false
 })
 /** 当前流式推理阶段（暂存，step_start/done 时推入当前消息的 steps 中） */
@@ -655,6 +876,11 @@ interface AgentAttachment {
   error?: string
 }
 const agentAttachments = ref<AgentAttachment[]>([])
+const agentImagePreview = reactive({
+  visible: false,
+  src: '',
+  name: ''
+})
 const agentFileInput = ref<HTMLInputElement | null>(null)
 const agentIsUploading = ref(false)
 const hasUnconfirmedAgentAttachments = computed(() =>
@@ -671,6 +897,19 @@ let runAbortController: AbortController | null = null
 let currentSessionId: string | null = null
 // 从首页「开始智能体」进入的待创建会话：首条消息发送时再调用 createSession 并加入列表，不在此前插入占位
 const pendingNewSessionId = ref<string | null>(null)
+
+function openAgentImagePreview(src: string, name = '') {
+  if (!src) return
+  agentImagePreview.visible = true
+  agentImagePreview.src = src
+  agentImagePreview.name = name
+}
+
+function closeAgentImagePreview() {
+  agentImagePreview.visible = false
+  agentImagePreview.src = ''
+  agentImagePreview.name = ''
+}
 
 // 听写（ASR）状态与逻辑（参考 Chat.vue）
 const isDictating = ref(false)
@@ -1181,6 +1420,7 @@ async function handleSend() {
   currentMessage.role = 'assistant'
   currentMessage.content = ''
   currentMessage.thinkingTime = undefined
+  currentMessage.attachmentLoading = false
   currentMessage.thinkingExpanded = false
   currentMessage.steps = []
   currentStep.reasoning = ''
@@ -1262,6 +1502,7 @@ async function handleSend() {
       role: 'assistant',
       content: '',
       steps: [],
+      attachmentLoading: false,
       thinkingExpanded: false,
       thinkingTime: undefined
     })
@@ -1300,6 +1541,7 @@ async function handleSend() {
         messages.value[messages.value.length - 1] = {
           ...last,
           content: currentMessage.content,
+          attachmentLoading: currentMessage.attachmentLoading,
           steps: currentMessage.steps ? [...currentMessage.steps] : []
         }
       }
@@ -1307,6 +1549,18 @@ async function handleSend() {
 
     const dispatch = (event: string, data: string) => {
       switch (event) {
+        case 'attachment_loading': {
+          currentMessage.attachmentLoading = true
+          updateLastAssistantFromCurrent()
+          scrollToBottom()
+          break
+        }
+        case 'attachment_loaded': {
+          currentMessage.attachmentLoading = false
+          updateLastAssistantFromCurrent()
+          scrollToBottom()
+          break
+        }
         case 'reasoning': {
           const reasoningChunk = parseStreamContent(data, 'reasoning')
           if (reasoningChunk) {
@@ -1326,6 +1580,7 @@ async function handleSend() {
               currentStep.thinkingTime = Math.max(0, Math.round(now - currentStepStartedAt))
             }
           }
+          if (reasoningChunk) currentMessage.attachmentLoading = false
           updateLastAssistantFromCurrent()
           scrollToBottom()
           break
@@ -1333,6 +1588,7 @@ async function handleSend() {
         case 'text': {
           // 兼容 JSON 格式 {"type":"text","content":"..."}，只拼接 content 文本
           const textChunk = parseStreamContent(data, 'text')
+          if (textChunk) currentMessage.attachmentLoading = false
           currentMessage.content += textChunk
           updateLastAssistantFromCurrent()
           scrollToBottom()
@@ -1340,55 +1596,55 @@ async function handleSend() {
         }
         case 'step_start': {
           // 阶段切换：将当前 step 推入 steps，后续 reasoning / 工具归入新的 step
+          currentMessage.attachmentLoading = false
           pushCurrentStepIfNeeded()
           updateLastAssistantFromCurrent()
           scrollToBottom()
           break
         }
-        case 'tool_call': {
+        case 'tool_call':
+        case 'mcp_call': {
           try {
-            const obj = typeof data === 'string' ? JSON.parse(data) : data
-            const toolName = obj?.meta?.toolName ?? obj?.toolName ?? 'unknown'
-            const args = typeof obj?.content === 'string' ? obj.content : JSON.stringify(obj?.content ?? '')
+            const payload = parseAgentToolEventPayload(data)
+            const toolName = getAgentToolName(payload) || 'unknown'
+            const args = getAgentToolContent(payload)
+            const toolCallId = getAgentToolCallId(payload)
+            const isMcp = event === 'mcp_call' || isMcpToolName(toolName)
             if (!currentStep.tools) currentStep.tools = []
-            currentStep.tools.push({ toolName, args, result: null })
+            currentMessage.attachmentLoading = false
+            currentStep.tools.push({ toolCallId, toolName, args, result: null, isMcp })
             updateLastAssistantFromCurrent()
           } catch (e) {
-            console.warn('tool_call parse error', e)
+            console.warn(`${event} parse error`, e)
           }
           break
         }
-        case 'tool_result': {
+        case 'tool_result':
+        case 'mcp_result': {
           try {
-            const obj = typeof data === 'string' ? JSON.parse(data) : data
-            const content = typeof obj?.content === 'string' ? obj.content : JSON.stringify(obj?.content ?? '')
-            // 优先匹配当前 step 中最后一个工具
-            let target: ToolCallItem | undefined
-            if (currentStep.tools && currentStep.tools.length) {
-              target = currentStep.tools[currentStep.tools.length - 1]
-            }
-            // 若当前 step 未找到，则从已落盘 steps 中自后向前寻找
-            if (!target && currentMessage.steps && currentMessage.steps.length) {
-              for (let si = currentMessage.steps.length - 1; si >= 0 && !target; si--) {
-                const tools = currentMessage.steps[si].tools || []
-                for (let ti = tools.length - 1; ti >= 0; ti--) {
-                  if (tools[ti].result == null) {
-                    target = tools[ti]
-                    break
-                  }
-                }
-              }
-            }
+            const payload = parseAgentToolEventPayload(data)
+            const content = getAgentToolContent(payload)
+            const toolName = getAgentToolName(payload)
+            const toolCallId = getAgentToolCallId(payload)
+            const isMcpResult = event === 'mcp_result' || isMcpToolName(toolName)
+            const target = findPendingToolCall(currentStep.tools, currentMessage.steps, {
+              toolCallId,
+              toolName,
+              isMcpResult
+            })
             if (target) {
+              currentMessage.attachmentLoading = false
               target.result = content
+              if (isMcpResult) target.isMcp = true
+              if (toolCallId && !target.toolCallId) target.toolCallId = toolCallId
               // 从 tool_result 的 meta 中提取 cost（耗时，毫秒）
-              const meta = obj?.meta ?? {}
-              const cost = toFiniteNumber(meta.cost ?? obj.cost)
+              const meta = payload.meta ?? {}
+              const cost = toFiniteNumber(meta.cost ?? payload.cost)
               if (cost != null) target.cost = cost
               updateLastAssistantFromCurrent()
             }
           } catch (e) {
-            console.warn('tool_result parse error', e)
+            console.warn(`${event} parse error`, e)
           }
           break
         }
@@ -1397,6 +1653,7 @@ async function handleSend() {
           setTimeout(() => (warnMessage.value = ''), 5000)
           break
         case 'error':
+          currentMessage.attachmentLoading = false
           errorMessage.value = data || '发生错误'
           closeEventSource()
           // 若当前助手条无内容，移除占位条
@@ -1419,6 +1676,7 @@ async function handleSend() {
 
           const lastMsg = messages.value[messages.value.length - 1]
           if (lastMsg?.role === 'assistant') {
+            currentMessage.attachmentLoading = false
             if (stats && typeof stats === 'object') {
               const usage = parseUsageStats(stats)
               addUsageStats(lastMsg, usage)
@@ -1429,6 +1687,7 @@ async function handleSend() {
             pushCurrentStepIfNeeded()
             currentMessage.content = currentMessage.content
             lastMsg.content = currentMessage.content
+            lastMsg.attachmentLoading = false
             lastMsg.steps = currentMessage.steps ? [...currentMessage.steps] : []
           }
           const hasAnySteps = lastMsg?.role === 'assistant' && ((lastMsg.steps?.length ?? 0) > 0)
@@ -1437,6 +1696,7 @@ async function handleSend() {
           }
           // 本轮结束后重置临时状态，下一轮重新开始
           currentMessage.content = ''
+          currentMessage.attachmentLoading = false
           currentMessage.steps = []
           currentStep.reasoning = ''
           currentStep.tools = []
@@ -1528,6 +1788,11 @@ async function handleStop() {
 
 // 关闭 SSE 连接（中止 fetch 流）
 function closeEventSource() {
+  currentMessage.attachmentLoading = false
+  const last = messages.value[messages.value.length - 1]
+  if (last?.role === 'assistant' && last.attachmentLoading) {
+    last.attachmentLoading = false
+  }
   if (runAbortController) {
     runAbortController.abort()
     runAbortController = null
@@ -1645,7 +1910,7 @@ async function loadMessages(sessionId: string) {
           continue
         }
 
-        if (type === 'tool') {
+        if (type === 'tool' || type === 'mcp_call') {
           if (!currentAssistant) {
             // 没有 assistant 容器时跳过，避免结构错乱
             continue
@@ -1654,44 +1919,33 @@ async function loadMessages(sessionId: string) {
             currentStepForHistory = { tools: [] }
           }
           if (!currentStepForHistory.tools) currentStepForHistory.tools = []
+          const toolName = payload.toolName || (payload.meta?.toolName as string) || 'unknown'
+          const isMcp = type === 'mcp_call' || isMcpToolName(toolName)
           currentStepForHistory.tools.push({
             toolCallId: payload.toolCallId || undefined,
-            toolName: payload.toolName || 'unknown',
+            toolName,
             args: payload.toolArgs || '',
             result: null,
+            isMcp,
             cost: undefined
           })
           continue
         }
 
-        if (type === 'tool_result') {
+        if (type === 'tool_result' || type === 'mcp_result') {
           if (!currentAssistant || !currentStepForHistory || !currentStepForHistory.tools?.length) continue
           const id = payload.toolCallId
-          let target: ToolCallItem | undefined
-
-          if (id) {
-            for (let i = currentStepForHistory.tools.length - 1; i >= 0; i--) {
-              if (currentStepForHistory.tools[i].toolCallId === id) {
-                target = currentStepForHistory.tools[i]
-                break
-              }
-            }
-          }
-
-          if (!target && payload.toolName) {
-            for (let i = currentStepForHistory.tools.length - 1; i >= 0; i--) {
-              if (
-                currentStepForHistory.tools[i].toolName === payload.toolName &&
-                currentStepForHistory.tools[i].result === null
-              ) {
-                target = currentStepForHistory.tools[i]
-                break
-              }
-            }
-          }
+          const resultToolName = payload.toolName || (payload.meta?.toolName as string) || ''
+          const isMcpResult = type === 'mcp_result' || isMcpToolName(resultToolName)
+          const target = findPendingToolCallInList(currentStepForHistory.tools, {
+            toolCallId: id || undefined,
+            toolName: resultToolName || undefined,
+            isMcpResult
+          })
 
           if (target) {
             target.result = payload.toolResult ?? ''
+            if (isMcpResult) target.isMcp = true
             const toolCost = toFiniteNumber(payload.cost ?? (raw as any).cost)
             if (toolCost != null) target.cost = toolCost
           }
@@ -1744,24 +1998,24 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .agent-container {
-  --agent-accent: #2563eb;
-  --agent-accent-soft: #dbeafe;
+  --agent-accent: #5f7ea8;
+  --agent-accent-soft: #e7eef8;
   --agent-surface: #ffffff;
-  --agent-surface-muted: #f8fafc;
-  --agent-surface-soft: #f1f6ff;
-  --agent-border: #dbe4f0;
-  --agent-text: #0f172a;
-  --agent-text-muted: #64748b;
+  --agent-surface-muted: #f6f7f9;
+  --agent-surface-soft: #f1f4f8;
+  --agent-border: #dde3ea;
+  --agent-text: #2b3138;
+  --agent-text-muted: #6f7782;
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: linear-gradient(180deg, #f8fbff 0%, #f3f7fc 100%);
+  background: #f7f8fa;
 }
 
 .chat-header {
   padding: 14px 20px;
   border-bottom: 1px solid var(--agent-border);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(247, 251, 255, 0.92) 100%);
+  background: rgba(248, 249, 251, 0.96);
   backdrop-filter: blur(8px);
 }
 
@@ -1780,10 +2034,13 @@ onBeforeUnmount(() => {
 
 .chat-title {
   color: var(--agent-text);
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .chat-subtitle {
   color: var(--agent-text-muted);
+  font-size: 13px;
 }
 
 .back-button {
@@ -1796,7 +2053,7 @@ onBeforeUnmount(() => {
 }
 
 .back-button:hover {
-  border-color: #bfdbfe;
+  border-color: #c5d1df;
   background: var(--agent-surface-soft);
 }
 
@@ -1839,9 +2096,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-lg);
-  background:
-    radial-gradient(1200px 320px at 0% -10%, rgba(191, 219, 254, 0.26), transparent 62%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.6));
+  background: #f7f8fa;
 }
 
 .message-group {
@@ -1868,11 +2123,12 @@ onBeforeUnmount(() => {
 }
 
 .message-bubble.user {
-  background: #eaf2ff;
-  color: #1e3a5f;
-  border: 1px solid #d8e6ff;
+  background: #e8eef7;
+  color: #243347;
+  border: 1px solid #d3ddea;
   border-bottom-right-radius: var(--radius-sm);
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 4px 10px rgba(35, 52, 76, 0.08);
+  font-size: 17px;
 }
 
 .message-bubble.assistant {
@@ -1902,11 +2158,11 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: #f8fafc;
-  border: 1px dashed #e2e8f0;
+  background: #f5f7fb;
+  border: 1px dashed #d7dee9;
   border-radius: 10px;
   font-size: 13px;
-  color: #64748b;
+  color: #6d7582;
   margin: 6px 0;
 }
 .file-tool-loading-icon {
@@ -1915,16 +2171,16 @@ onBeforeUnmount(() => {
 
 /* 正文 Markdown 样式（Agent 助手消息） */
 .message-content.assistant-body {
-  width: min(94%, 920px);
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid var(--agent-border);
-  background: var(--agent-surface);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  width: min(98%, 1180px);
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
   box-sizing: border-box;
-  font-size: 15px;
-  line-height: 1.6;
-  color: var(--text-primary);
+  font-size: 17px;
+  line-height: 1.85;
+  color: var(--agent-text);
 }
 
 .message-content.assistant-body :deep(p) {
@@ -1947,20 +2203,21 @@ onBeforeUnmount(() => {
 
 .message-content.assistant-body :deep(li) {
   margin: 0.25em 0;
+  font-size: 1em;
 }
 
 .message-content.assistant-body :deep(a) {
-  color: var(--primary, #2563eb);
+  color: #476a99;
   text-decoration: underline;
 }
 
 .message-content.assistant-body :deep(a:hover) {
-  color: var(--primary-dark, #1d4ed8);
+  color: #345277;
 }
 
 .message-content.assistant-body :deep(strong) {
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--agent-text);
 }
 
 .message-content.assistant-body :deep(em) {
@@ -1968,21 +2225,21 @@ onBeforeUnmount(() => {
 }
 
 .message-content.assistant-body :deep(code:not(pre code)) {
-  background: var(--bg-code, rgba(0, 0, 0, 0.06));
+  background: rgba(85, 104, 130, 0.1);
   padding: 0.2em 0.4em;
   border-radius: 4px;
-  font-size: 0.9em;
+  font-size: 0.95em;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: var(--text-code, #334155);
+  color: #3f4f63;
 }
 
 .message-content.assistant-body :deep(pre) {
   margin: 1em 0;
   padding: 1em;
   border-radius: var(--radius-md);
-  background: var(--bg-code, #f1f5f9);
+  background: #f3f6fb;
   overflow-x: auto;
-  font-size: 0.875em;
+  font-size: 0.95em;
   line-height: 1.5;
 }
 
@@ -1995,8 +2252,8 @@ onBeforeUnmount(() => {
 .message-content.assistant-body :deep(blockquote) {
   margin: 1em 0;
   padding-left: 1em;
-  border-left: 3px solid var(--border-medium, #e5e7eb);
-  color: var(--text-secondary, #6b7280);
+  border-left: 3px solid #d6dfeb;
+  color: #677284;
 }
 
 .message-content.assistant-body :deep(table) {
@@ -2007,13 +2264,13 @@ onBeforeUnmount(() => {
 
 .message-content.assistant-body :deep(th),
 .message-content.assistant-body :deep(td) {
-  border: 1px solid var(--border-light, #e5e7eb);
+  border: 1px solid #dbe3ee;
   padding: 0.5em 0.75em;
   text-align: left;
 }
 
 .message-content.assistant-body :deep(th) {
-  background: var(--bg-secondary, #f9fafb);
+  background: #f4f7fb;
   font-weight: 600;
 }
 
@@ -2022,6 +2279,62 @@ onBeforeUnmount(() => {
   height: auto;
   max-height: 320px;
   border-radius: var(--radius-md);
+}
+
+/* 附件读取中的波浪提示 */
+.attachment-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 2px;
+  margin-bottom: 8px;
+}
+
+.attachment-loading-text {
+  color: var(--agent-text-muted);
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+
+.attachment-loading-wave {
+  position: relative;
+  width: 22px;
+  height: 14px;
+  color: var(--agent-text-light, #94a3b8);
+  overflow: hidden;
+}
+
+.attachment-loading-wave::before {
+  content: "";
+  position: absolute;
+  inset: 4px 4px 4px 0;
+  background:
+    linear-gradient(135deg, transparent 44%, currentColor 44% 56%, transparent 56%) 0 50% / 8px 8px repeat-x,
+    linear-gradient(225deg, transparent 44%, currentColor 44% 56%, transparent 56%) 4px 50% / 8px 8px repeat-x;
+  opacity: 0.9;
+  animation: attachment-loading-wave 0.9s linear infinite;
+}
+
+.attachment-loading-wave::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  right: 0;
+  width: 2px;
+  height: 12px;
+  border-radius: 2px;
+  background: currentColor;
+  animation: attachment-loading-caret 1s steps(1, end) infinite;
+}
+
+@keyframes attachment-loading-wave {
+  from { transform: translateX(0); }
+  to { transform: translateX(-8px); }
+}
+
+@keyframes attachment-loading-caret {
+  0%, 45% { opacity: 1; }
+  46%, 100% { opacity: 0.25; }
 }
 
 /* 消息 footer：展示 usage 统计信息（Token / 耗时） */
@@ -2145,6 +2458,12 @@ onBeforeUnmount(() => {
   object-fit: cover;
 }
 
+.attach-card-preview-btn {
+  border: none;
+  padding: 0;
+  cursor: zoom-in;
+}
+
 .attach-card-file-icon {
   width: 100%;
   height: 100%;
@@ -2186,6 +2505,58 @@ onBeforeUnmount(() => {
   width: 34px;
   height: 34px;
   pointer-events: none;
+}
+
+.image-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.image-preview-dialog {
+  position: relative;
+  max-width: min(92vw, 1080px);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.image-preview-close {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.82);
+  color: #fff;
+  cursor: pointer;
+}
+
+.image-preview-img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(92vh - 48px);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+  object-fit: contain;
+}
+
+.image-preview-name {
+  max-width: min(92vw, 1080px);
+  color: #e2e8f0;
+  font-size: 13px;
+  text-align: center;
+  word-break: break-word;
 }
 
 .attach-card-body {
@@ -2235,7 +2606,7 @@ onBeforeUnmount(() => {
 /* 输入框（参考 Chat.vue input-box-container，无 input-prefix-btn） */
 .input-container {
   padding: var(--spacing-md) var(--spacing-xl);
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(247, 248, 250, 0.94);
   border-top: 1px solid var(--agent-border);
   backdrop-filter: blur(8px);
   flex-shrink: 0;
@@ -2250,7 +2621,7 @@ onBeforeUnmount(() => {
   padding: 12px 16px;
   border: 1px solid var(--agent-border);
   border-radius: var(--radius-2xl);
-  background: var(--agent-surface);
+  background: #ffffff;
   min-height: 56px;
   --input-max-height: 200px;
   /* 容器最大高度需包含 padding，避免 textarea 到顶后被裁切 */
@@ -2263,13 +2634,13 @@ onBeforeUnmount(() => {
 
 .input-box-container:focus-within {
   border-color: var(--agent-accent);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 0 3px rgba(95, 126, 168, 0.14);
 }
 
 .input-box-container.input-box-has-attachments {
-  border-color: rgba(148, 163, 184, 0.62);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.95));
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  border-color: #d8e0ea;
+  background: linear-gradient(180deg, #ffffff, #f7f9fc);
+  box-shadow: 0 10px 24px rgba(31, 45, 66, 0.08);
 }
 
 .input-box-container .message-input {
@@ -2282,9 +2653,9 @@ onBeforeUnmount(() => {
   background: transparent;
   box-shadow: none;
   outline: none;
-  font-size: 1rem;
+  font-size: 15px;
   line-height: 1.5;
-  color: var(--text-primary);
+  color: var(--agent-text);
   resize: none;
   overflow-y: hidden;
   scrollbar-width: thin;
@@ -2301,7 +2672,8 @@ onBeforeUnmount(() => {
 }
 
 .message-input::placeholder {
-  color: var(--text-light);
+  color: #9a8a76;
+  font-size: 14px;
 }
 
 .message-input:disabled {
@@ -2313,7 +2685,7 @@ onBeforeUnmount(() => {
   width: 38px;
   height: 38px;
   border: none;
-  background: linear-gradient(140deg, #60a5fa, #2563eb);
+  background: linear-gradient(140deg, #8ba3c2, #6f8fb6);
   border-radius: 12px;
   cursor: pointer;
   display: flex;
@@ -2321,7 +2693,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   color: white;
   font-size: 1.1rem;
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.32);
+  box-shadow: 0 8px 18px rgba(72, 98, 132, 0.22);
   transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
   flex-shrink: 0;
 }
@@ -2329,7 +2701,7 @@ onBeforeUnmount(() => {
 .send-button:hover:not(:disabled) {
   filter: brightness(1.02);
   transform: translateY(-1px);
-  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.38);
+  box-shadow: 0 12px 22px rgba(72, 98, 132, 0.28);
 }
 
 .input-action-btn {
@@ -2342,9 +2714,9 @@ onBeforeUnmount(() => {
 }
 
 .input-action-btn:hover:not(:disabled) {
-  border-color: rgba(148, 163, 184, 0.26);
-  background: rgba(15, 23, 42, 0.04);
-  color: #1e40af;
+  border-color: rgba(159, 178, 203, 0.45);
+  background: rgba(95, 126, 168, 0.08);
+  color: #4f698a;
 }
 
 .attach-btn-icon {
@@ -2354,7 +2726,7 @@ onBeforeUnmount(() => {
 
 .message-bubble.assistant :deep(.think-card) {
   border: 1px solid var(--agent-border);
-  background: linear-gradient(180deg, #f7fbff 0%, #f8fafc 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f5f8fc 100%);
 }
 
 .message-bubble.assistant :deep(.think-label) {
@@ -2362,13 +2734,78 @@ onBeforeUnmount(() => {
 }
 
 .message-bubble.assistant :deep(.tool-card) {
-  border-color: var(--agent-border);
-  background: var(--agent-surface);
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+  border-color: #b8c9dc;
+  background: #f6faff;
+  box-shadow: 0 8px 20px rgba(28, 44, 66, 0.12);
+  max-width: min(98%, 1060px);
 }
 
 .message-bubble.assistant :deep(.tool-card .card-header) {
-  background: var(--agent-surface-soft);
+  background: #e2ebf8;
+  border-bottom-color: #c8d5e6;
+}
+
+.message-bubble.assistant :deep(.tool-card .tool-name),
+.message-bubble.assistant :deep(.tool-card .param-val),
+.message-bubble.assistant :deep(.tool-card .result-block) {
+  color: #1f2d3d;
+}
+
+.message-bubble.assistant :deep(.tool-card .param-key),
+.message-bubble.assistant :deep(.tool-card .section-label),
+.message-bubble.assistant :deep(.tool-card .footer-meta) {
+  color: #5b6b7f;
+}
+
+.message-bubble.assistant :deep(.tool-card .status-badge.success) {
+  background: rgba(15, 118, 110, 0.12);
+  border-color: rgba(15, 118, 110, 0.24);
+  color: #0f766e;
+}
+
+.message-bubble.assistant :deep(.tool-card .status-badge.error) {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.28);
+  color: #b91c1c;
+}
+
+.message-bubble.assistant :deep(.tool-card .status-badge.running) {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.28);
+  color: #1d4ed8;
+}
+
+.message-bubble.assistant :deep(.tool-card .result-block) {
+  background: #ffffff;
+  border-color: #cfdceb;
+}
+
+.message-bubble.assistant :deep(.mcp-card) {
+  border-color: #bfcddd;
+  background: #fbfdff;
+  box-shadow: 0 8px 20px rgba(28, 44, 66, 0.12);
+}
+
+.message-bubble.assistant :deep(.mcp-card .card-header) {
+  background: #e7eef7;
+  border-bottom-color: #cdd9e8;
+}
+
+.message-bubble.assistant :deep(.mcp-card .mcp-title),
+.message-bubble.assistant :deep(.mcp-card .param-val),
+.message-bubble.assistant :deep(.mcp-card .result-block) {
+  color: #1f2d3d;
+}
+
+.message-bubble.assistant :deep(.mcp-card .section-label),
+.message-bubble.assistant :deep(.mcp-card .param-key),
+.message-bubble.assistant :deep(.mcp-card .cost-text) {
+  color: #5b6b7f;
+}
+
+.message-bubble.assistant :deep(.mcp-card .result-block) {
+  background: #f7fbff;
+  border-color: #d6e2ef;
 }
 
 .send-button:disabled {
@@ -2631,6 +3068,11 @@ onBeforeUnmount(() => {
 @media (max-width: 768px) {
   .message-bubble {
     max-width: 85%;
+  }
+  .message-content.assistant-body,
+  .message-bubble.assistant :deep(.tool-card) {
+    width: 100%;
+    max-width: 100%;
   }
 }
 </style>

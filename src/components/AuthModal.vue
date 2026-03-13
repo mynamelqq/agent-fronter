@@ -2,7 +2,7 @@
   <div class="modal-backdrop" @click="emit('close')">
     <div class="modal auth-modal" @click.stop>
       <div class="modal-head">
-        <div class="modal-title">{{ mode === 'login' ? t('登录获得更多功能', 'Sign in for more features') : t('注册', 'Register') }}</div>
+        <div class="modal-title">{{ modalTitle }}</div>
         <button class="icon-btn" @click="emit('close')" :aria-label="t('关闭', 'Close')">✕</button>
       </div>
 
@@ -61,10 +61,19 @@
               autocomplete="current-password"
             />
           </label>
+          <div class="auth-inline-actions">
+            <label class="remember-me">
+              <input v-model="rememberPassword" type="checkbox" />
+              <span>{{ t('记住密码', 'Remember password') }}</span>
+            </label>
+            <button type="button" class="text-btn" @click="openForgotPassword">
+              {{ t('忘记密码', 'Forgot password') }}
+            </button>
+          </div>
         </template>
 
         <!-- 注册：头像(顶部居中) + 邮箱 + 昵称 + 密码 -->
-        <template v-else>
+        <template v-else-if="mode === 'register'">
           <div class="edit-profile-avatar-section">
             <div class="edit-profile-avatar-wrap">
               <button
@@ -144,17 +153,48 @@
             <div v-if="confirmPassword && password !== confirmPassword" class="confirm-mismatch">{{ t('两次输入的密码不一致', 'Passwords do not match') }}</div>
           </label>
         </template>
-
+        <template v-else>
+          <label class="field">
+            <div class="label">{{ t('邮箱', 'Email') }} <span class="required">*</span></div>
+            <input
+              v-model="forgotEmail"
+              type="email"
+              :placeholder="t('请输入注册邮箱', 'Enter your registered email')"
+              autocomplete="email"
+            />
+          </label>
+          <label class="field">
+            <div class="label">{{ t('新密码', 'New password') }} <span class="required">*</span></div>
+            <input
+              v-model="forgotNewPassword"
+              type="password"
+              :placeholder="t('请输入新密码（至少 6 位）', 'Enter new password (at least 6 chars)')"
+              autocomplete="new-password"
+            />
+          </label>
+          <label class="field">
+            <div class="label">{{ t('确认新密码', 'Confirm new password') }} <span class="required">*</span></div>
+            <input
+              v-model="forgotConfirmPassword"
+              type="password"
+              :placeholder="t('请再次输入新密码', 'Enter new password again')"
+              autocomplete="new-password"
+            />
+            <div v-if="forgotConfirmPassword && forgotNewPassword !== forgotConfirmPassword" class="confirm-mismatch">
+              {{ t('两次输入的新密码不一致', 'New passwords do not match') }}
+            </div>
+          </label>
+        </template>
         <div v-if="successTip" class="success-tip">{{ successTip }}</div>
         <div v-if="error" class="error">{{ error }}</div>
       </div>
 
       <div class="modal-foot">
         <button class="ghost" @click="toggleMode">
-          {{ mode === 'login' ? t('没有账号？去注册', "Don't have an account? Register") : t('已有账号？去登录', 'Already have an account? Sign in') }}
+          {{ toggleText }}
         </button>
         <button class="primary" :disabled="loading" @click="submit">
-          {{ loading ? t('处理中...', 'Processing...') : (mode === 'login' ? t('登录', 'Sign in') : t('注册', 'Register')) }}
+          {{ loading ? t('处理中...', 'Processing...') : submitText }}
         </button>
       </div>
     </div>
@@ -162,7 +202,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { apiFetch } from '../api/http'
 import { uploadAvatar } from '../api/upload'
 import { setUser, setTokens, type UserVO } from '../stores/auth'
@@ -174,12 +214,18 @@ const emit = defineEmits<{
   (e: 'success'): void
 }>()
 
-const mode = ref<'login' | 'register'>('login')
+const REMEMBER_LOGIN_KEY = 'chatui_remember_login_v1'
+
+const mode = ref<'login' | 'register' | 'forgotPassword'>('login')
 const username = ref('')
 const email = ref('')
 const nickName = ref('')
 const password = ref('')
 const confirmPassword = ref('')
+const forgotEmail = ref('')
+const forgotNewPassword = ref('')
+const forgotConfirmPassword = ref('')
+const rememberPassword = ref(false)
 const avatarUrl = ref('')
 const avatarUploading = ref(false)
 const avatarInputRef = ref<HTMLInputElement | null>(null)
@@ -217,6 +263,20 @@ function getPasswordStrength(p: string): { level: number; label: string; class: 
 }
 
 const passwordStrengthInfo = computed(() => getPasswordStrength(password.value))
+const modalTitle = computed(() => {
+  if (mode.value === 'login') return t('登录获得更多功能', 'Sign in for more features')
+  if (mode.value === 'register') return t('注册', 'Register')
+  return t('找回密码', 'Reset password')
+})
+const submitText = computed(() => {
+  if (mode.value === 'login') return t('登录', 'Sign in')
+  if (mode.value === 'register') return t('注册', 'Register')
+  return t('重置密码', 'Reset password')
+})
+const toggleText = computed(() => {
+  if (mode.value === 'login') return t('没有账号？去注册', "Don't have an account? Register")
+  return t('返回登录', 'Back to sign in')
+})
 
 // 头像首字母显示
 const avatarInitials = computed(() => {
@@ -229,19 +289,72 @@ const avatarInitials = computed(() => {
   }
 })
 
+function resetAuthFields() {
+  password.value = ''
+  confirmPassword.value = ''
+  forgotEmail.value = ''
+  forgotNewPassword.value = ''
+  forgotConfirmPassword.value = ''
+}
+
 function toggleMode() {
   error.value = ''
   successTip.value = ''
   if (mode.value === 'register') {
     username.value = email.value.trim() || username.value
+    mode.value = 'login'
+  } else if (mode.value === 'forgotPassword') {
+    mode.value = 'login'
   } else {
     email.value = ''
     nickName.value = ''
     avatarUrl.value = ''
-    confirmPassword.value = ''
+    mode.value = 'register'
   }
-  mode.value = mode.value === 'login' ? 'register' : 'login'
+  resetAuthFields()
 }
+
+function openForgotPassword() {
+  error.value = ''
+  successTip.value = ''
+  forgotEmail.value = username.value.trim()
+  forgotNewPassword.value = ''
+  forgotConfirmPassword.value = ''
+  mode.value = 'forgotPassword'
+}
+
+function persistRememberedLogin() {
+  try {
+    if (!rememberPassword.value) {
+      localStorage.removeItem(REMEMBER_LOGIN_KEY)
+      return
+    }
+    localStorage.setItem(
+      REMEMBER_LOGIN_KEY,
+      JSON.stringify({
+        username: username.value.trim(),
+        password: password.value
+      })
+    )
+  } catch {}
+}
+
+function clearRememberedLogin() {
+  try {
+    localStorage.removeItem(REMEMBER_LOGIN_KEY)
+  } catch {}
+}
+
+onMounted(() => {
+  try {
+    const raw = localStorage.getItem(REMEMBER_LOGIN_KEY)
+    if (!raw) return
+    const remembered = JSON.parse(raw) as { username?: string; password?: string }
+    username.value = remembered.username || ''
+    password.value = remembered.password || ''
+    rememberPassword.value = !!(remembered.username || remembered.password)
+  } catch {}
+})
 
 function getBackendMessage(json: { message?: string; msg?: string } | undefined): string {
   if (!json) return t('操作失败', 'Operation failed')
@@ -280,6 +393,61 @@ async function submit() {
   error.value = ''
   successTip.value = ''
 
+  if (mode.value === 'forgotPassword') {
+    const em = forgotEmail.value.trim()
+    const newP = forgotNewPassword.value.trim()
+    const confirmP = forgotConfirmPassword.value.trim()
+
+    if (!em) {
+      error.value = t('请输入邮箱', 'Enter email')
+      return
+    }
+    if (!EMAIL_REG.test(em)) {
+      error.value = t('请输入有效的邮箱地址', 'Enter a valid email address')
+      return
+    }
+    if (!newP) {
+      error.value = t('请输入新密码', 'Enter new password')
+      return
+    }
+    if (newP.length < 6) {
+      error.value = t('密码至少 6 位', 'Password must be at least 6 chars')
+      return
+    }
+    if (newP !== confirmP) {
+      error.value = t('两次输入的新密码不一致', 'New passwords do not match')
+      return
+    }
+
+    loading.value = true
+    try {
+      const { ok, json } = await apiFetch('/api/user/password/forgot/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          email: em,
+          newPassword: newP,
+          confirmPassword: confirmP
+        })
+      })
+      if (!ok) {
+        error.value = getBackendMessage(json as any)
+        return
+      }
+      successTip.value = t('密码重置成功，请使用新密码登录', 'Password reset. Please sign in with the new password')
+      username.value = em
+      password.value = ''
+      mode.value = 'login'
+      forgotNewPassword.value = ''
+      forgotConfirmPassword.value = ''
+    } catch {
+      error.value = t('网络错误', 'Network error')
+    } finally {
+      loading.value = false
+    }
+    return
+  }
+
   if (mode.value === 'login') {
     const u = username.value.trim()
     const p = password.value.trim()
@@ -303,6 +471,11 @@ async function submit() {
       if (!ok || !data?.accessToken || !data?.refreshToken) {
         error.value = getBackendMessage(json as any)
         return
+      }
+      if (rememberPassword.value) {
+        persistRememberedLogin()
+      } else {
+        clearRememberedLogin()
       }
       // 写入 token
       setTokens(data.accessToken, data.refreshToken)
@@ -398,6 +571,35 @@ async function submit() {
 .auth-modal .field-optional .label {
   font-weight: normal;
   color: var(--text-secondary, #666);
+}
+.auth-inline-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: -0.15rem;
+}
+.remember-me {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #666);
+  cursor: pointer;
+}
+.remember-me input {
+  margin: 0;
+}
+.text-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.text-btn:hover {
+  text-decoration: underline;
 }
 .edit-profile-avatar-section {
   display: flex;

@@ -1,5 +1,4 @@
-import { getAccessToken } from '../stores/auth'
-import { getAnnoIdForRequest } from './anon'
+import { apiFetchRaw } from './http'
 
 export interface UploadResult {
   fileUrl: string
@@ -15,20 +14,6 @@ export interface UploadConfirmOptions {
   fileSize?: number
   fileName?: string
   fileType?: string
-}
-
-function withAuthHeaders(baseHeaders: Record<string, string> = {}): Record<string, string> {
-  const headers: Record<string, string> = { ...baseHeaders }
-  const token = getAccessToken()
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
-  } else {
-    const annoId = getAnnoIdForRequest()
-    if (annoId && !headers['Anno-Id']) {
-      headers['Anno-Id'] = annoId
-    }
-  }
-  return headers
 }
 
 /**
@@ -51,11 +36,9 @@ export async function uploadFile(
   const suffix = ext ? `.${ext}` : ''
 
   // 1. 请求后端签名，获取上传地址与最终访问地址
-  const signRes = await fetch(
+  const signRes = await apiFetchRaw(
     `/api/upload/sign?suffix=${encodeURIComponent(suffix)}`,
-    {
-      headers: withAuthHeaders()
-    }
+    {}
   )
   if (!signRes.ok) {
     throw new Error('获取上传签名失败')
@@ -77,9 +60,9 @@ export async function uploadFile(
   }
 
   // 3. 上传成功，调用确认接口；后端使用 file_size 字段（字节数）
-  const confirmRes = await fetch('/api/upload/confirm', {
+  const confirmRes = await apiFetchRaw('/api/upload/confirm', {
     method: 'POST',
-    headers: withAuthHeaders({ 'Content-Type': 'application/json' }),
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chat_id: options.chat_id ?? '',
       conservation_id: options.conservation_id,
@@ -130,11 +113,9 @@ export async function uploadAvatar(file: File): Promise<AvatarUploadResult> {
     throw new Error('请选择图片文件（jpg、png、gif、webp）')
   }
 
-  const signRes = await fetch(
+  const signRes = await apiFetchRaw(
     `/api/upload/sign/avatar?suffix=${encodeURIComponent(suffix)}`,
-    {
-      headers: withAuthHeaders()
-    }
+    {}
   )
   if (!signRes.ok) {
     throw new Error('获取头像上传签名失败')

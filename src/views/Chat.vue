@@ -221,21 +221,36 @@
       >
        <!-- 用户消息附件：展示在该条用户消息上方，简约卡片 -->
        <div v-if="message.role === 'user' && message.aiAttachments?.length" class="message-attachments">
-         <a
+         <template
            v-for="att in message.aiAttachments"
            :key="att.id"
-           :href="att.file_url"
-           target="_blank"
-           rel="noopener"
-           class="message-attach-card"
          >
-           <span class="message-attach-icon">
-             <img v-if="att.file_type.startsWith('image/')" :src="att.file_url" class="message-attach-thumb" alt="" />
-             <span v-else class="message-attach-file-icon">📎</span>
-           </span>
-           <span class="message-attach-name">{{ att.file_name }}</span>
-           <span class="message-attach-meta">{{ formatFileSize(att.file_size) }} · {{ formatFileType(att.file_type) }}</span>
-         </a>
+           <button
+             v-if="isImageAttachment(att.file_type)"
+             type="button"
+             class="message-attach-card is-image"
+             @click="openImagePreview(att.file_url, att.file_name)"
+           >
+             <span class="message-attach-icon">
+               <img :src="att.file_url" class="message-attach-thumb" :alt="att.file_name" />
+             </span>
+             <span class="message-attach-name">{{ att.file_name }}</span>
+             <span class="message-attach-meta">{{ formatFileSize(att.file_size) }} · {{ formatFileType(att.file_type) }}</span>
+           </button>
+           <a
+             v-else
+             :href="att.file_url"
+             target="_blank"
+             rel="noopener"
+             class="message-attach-card"
+           >
+             <span class="message-attach-icon">
+               <span class="message-attach-file-icon">📎</span>
+             </span>
+             <span class="message-attach-name">{{ att.file_name }}</span>
+             <span class="message-attach-meta">{{ formatFileSize(att.file_size) }} · {{ formatFileType(att.file_type) }}</span>
+           </a>
+         </template>
        </div>
 
        <!-- 用户消息: 纯文本，有气泡 -->
@@ -246,21 +261,36 @@
     <div v-else class="message-wrapper assistant-wrapper">
       <!-- Assistant 消息附件（如果有）：展示在消息上方 -->
       <div v-if="message.aiAttachments?.length" class="message-attachments">
-        <a
+        <template
           v-for="att in message.aiAttachments"
           :key="att.id"
-          :href="att.file_url"
-          target="_blank"
-          rel="noopener"
-          class="message-attach-card"
         >
-          <span class="message-attach-icon">
-            <img v-if="att.file_type.startsWith('image/')" :src="att.file_url" class="message-attach-thumb" alt="" />
-            <span v-else class="message-attach-file-icon">📎</span>
-          </span>
-          <span class="message-attach-name">{{ att.file_name }}</span>
-          <span class="message-attach-meta">{{ formatFileSize(att.file_size) }} · {{ formatFileType(att.file_type) }}</span>
-        </a>
+          <button
+            v-if="isImageAttachment(att.file_type)"
+            type="button"
+            class="message-attach-card is-image"
+            @click="openImagePreview(att.file_url, att.file_name)"
+          >
+            <span class="message-attach-icon">
+              <img :src="att.file_url" class="message-attach-thumb" :alt="att.file_name" />
+            </span>
+            <span class="message-attach-name">{{ att.file_name }}</span>
+            <span class="message-attach-meta">{{ formatFileSize(att.file_size) }} · {{ formatFileType(att.file_type) }}</span>
+          </button>
+          <a
+            v-else
+            :href="att.file_url"
+            target="_blank"
+            rel="noopener"
+            class="message-attach-card"
+          >
+            <span class="message-attach-icon">
+              <span class="message-attach-file-icon">📎</span>
+            </span>
+            <span class="message-attach-name">{{ att.file_name }}</span>
+            <span class="message-attach-meta">{{ formatFileSize(att.file_size) }} · {{ formatFileType(att.file_type) }}</span>
+          </a>
+        </template>
       </div>
       <div class="message-bubble assistant">
         <div class="message-content assistant-content">
@@ -405,6 +435,15 @@
             </button>
             <button
               v-if="message.role === 'assistant'"
+              :class="['message-action', { 'message-action-active': (message as AssistantMessage).isFavor }]"
+              :title="(message as AssistantMessage).isFavor ? '取消点赞' : '点赞'"
+              :disabled="!(message as AssistantMessage).messageId || (message as AssistantMessage).favorLoading"
+              @click="toggleMessageFavor(message as AssistantMessage)"
+            >
+              <el-icon><Pointer /></el-icon>
+            </button>
+            <button
+              v-if="message.role === 'assistant'"
               :class="['message-action', { 'message-action-tts-active': ttsPlaying }]"
               :title="ttsPlaying ? '暂停' : '朗读'"
               @click="ttsPlaying ? stopReadAloud() : readMessageAloud(message)"
@@ -413,9 +452,6 @@
                 <Headset v-if="!ttsPlaying" />
                 <VideoPause v-else />
               </el-icon>
-            </button>
-            <button class="message-action" title="点赞">
-              <el-icon><Pointer /></el-icon>
             </button>
             <div
               v-if="message.role === 'assistant'"
@@ -499,9 +535,17 @@
       <!-- 附件展示区：卡片式，左侧图标+进度圈，文件名+类型，右上角删除 -->
       <div v-if="attachments.length > 0" class="attachments-list">
         <div v-for="item in attachments" :key="item.id" class="attach-card">
-          <div class="attach-card-icon">
+          <button
+            v-if="item.file.type.startsWith('image/') && item.status === 'done' && item.fileUrl"
+            type="button"
+            class="attach-card-icon attach-card-preview-btn"
+            @click="openImagePreview(item.fileUrl, item.file.name)"
+          >
+            <img :src="item.fileUrl" class="attach-card-img" :alt="item.file.name" />
+          </button>
+          <div v-else class="attach-card-icon">
             <template v-if="item.file.type.startsWith('image/') && item.status === 'done' && item.fileUrl">
-              <img :src="item.fileUrl" class="attach-card-img" alt="" />
+              <img :src="item.fileUrl" class="attach-card-img" :alt="item.file.name" />
             </template>
             <template v-else>
               <span class="attach-card-file-icon" :class="{ 'is-text': isTextLikeFile(item.file.name, item.file.type) }">
@@ -902,6 +946,15 @@
           </div>
         </template>
       </el-dialog>
+      <Teleport to="body">
+        <div v-if="imagePreview.visible" class="image-preview-backdrop" @click="closeImagePreview">
+          <div class="image-preview-dialog" @click.stop>
+            <button type="button" class="image-preview-close" @click="closeImagePreview" aria-label="关闭">✕</button>
+            <img :src="imagePreview.src" :alt="imagePreview.name" class="image-preview-img" />
+            <div v-if="imagePreview.name" class="image-preview-name">{{ imagePreview.name }}</div>
+          </div>
+        </div>
+      </Teleport>
     </div>
     </div>
   </div>
@@ -917,7 +970,7 @@ import { apiFetch } from '../api/http'
 
 import { uploadFile } from '../api/upload'
 import { compressMediaAttachment, isAllowedVideoFormat } from '../utils/attachment-compress'
-import { streamChat, streamRegenerate, StreamChatError, StreamChatErrorCode, cancelChat } from '../api/chat'
+import { streamChat, streamRegenerate, StreamChatError, StreamChatErrorCode, cancelChat, favorChatMessage } from '../api/chat'
 import { ensureAnonIdentified } from '../api/anon'
 import { getOcr } from '../api/ocr'
 import { readText as ttsReadText, stopTts } from '../api/tts'
@@ -1054,6 +1107,22 @@ const suggestions = computed(() => [
       '“请规划从北京南站到颐和园的最佳公交/地铁路线，要求：时间最短换乘次数最少列出每个换乘点和预计时间',
       'Plan the best bus/subway route from Beijing South Railway Station to Summer Palace with shortest time and fewest transfers.'
     )
+  },
+  {
+    id: 12,
+    icon: '⚡',
+    text: t('什么是麦克斯韦方程组？', 'What are Maxwell equations?')
+  },
+  {
+    id: 13,
+    icon: '🖼️',
+    text: t('这张图片是什么内容？', 'What is in this image?'),
+    description: t('这张图片是什么内容？', 'What is in this image?')
+  },
+  {
+    id: 14,
+    icon: '🌐',
+    text: t('https://jiekou.ai抓取这个网页，告诉我有哪些可用模型？', 'Scrape https://jiekou.ai and tell me available models.')
   }
 ])
 
@@ -1076,16 +1145,38 @@ function nextSuggestionPage() {
   homeSuggestionPage.value = Math.min(totalSuggestionPages.value, homeSuggestionPage.value + 1)
 }
 
-function useSuggestion(text: string,id:number) {
+async function uploadSuggestionImageFromPublic(imagePath: string): Promise<void> {
+  try {
+    const res = await fetch(imagePath)
+    if (!res.ok) {
+      throw new Error(`Failed to fetch image: ${res.status}`)
+    }
+    const blob = await res.blob()
+    const fileName = imagePath.split('/').pop() || 'fig1.png'
+    const fileType = blob.type || 'image/png'
+    const imageFile = new File([blob], fileName, { type: fileType })
+    await addFile(imageFile)
+  } catch (e) {
+    console.error('自动上传建议图片失败:', e)
+    ElMessage.warning(t('自动上传示例图片失败，请稍后重试', 'Failed to auto-upload sample image, please try again'))
+  }
+}
+
+async function useSuggestion(text: string,id:number) {
+  isEchartsMode.value=false,isSearchMode.value=false,isGenerateFileMode.value=false,isImageGenMode.value=false;
+  isThinkingMode.value=false;
   if(id){
-    if(id==2)isThinkingMode.value=true,isEchartsMode.value=false,isSearchMode.value=false,isGenerateFileMode.value=false,isImageGenMode.value=false
-    if(id==3)isEchartsMode.value=true,isThinkingMode.value=false,isSearchMode.value=false,isGenerateFileMode.value=false,isImageGenMode.value=false
-    if(id==4)isSearchMode.value=true,isThinkingMode.value=false,isEchartsMode.value=false,isGenerateFileMode.value=false,isImageGenMode.value=false
-    if(id==5)isGenerateFileMode.value=true,isThinkingMode.value=false,isEchartsMode.value=false,isSearchMode.value=false,isImageGenMode.value=false
-    if(id==6)isImageGenMode.value=true,isThinkingMode.value=false,isEchartsMode.value=false,isSearchMode.value=false,isGenerateFileMode.value=false
-    if(id==7)isSearchMode.value=false,isThinkingMode.value=false,isEchartsMode.value=false,isGenerateFileMode.value=false,isImageGenMode.value=false
-    if(id==8)isSearchMode.value=false,isThinkingMode.value=false,isEchartsMode.value=false,isGenerateFileMode.value=false,isImageGenMode.value=false
-    if(id==9)isSearchMode.value=false,isThinkingMode.value=false,isEchartsMode.value=false,isGenerateFileMode.value=false,isImageGenMode.value=false
+    if(id==2)isThinkingMode.value=true
+    if(id==3)isEchartsMode.value=true
+    if(id==4)isSearchMode.value=true
+    if(id==5)isGenerateFileMode.value=true
+    if(id==6)isImageGenMode.value=true
+    if(id==7)isSearchMode.value=false
+    if(id==8)isSearchMode.value=false
+    if(id==9)isSearchMode.value=false
+  }
+  if (id === 13) {
+    await uploadSuggestionImageFromPublic('/fig1.png')
   }
   currentMessage.value = text
   nextTick(() => {
@@ -1184,6 +1275,8 @@ interface AssistantMessage extends BaseMessage {
   role: 'assistant'
   isStreaming: boolean
   isFinished: boolean
+  isFavor?: boolean
+  favorLoading?: boolean
   /** 本条由 markdown-it 流式/历史渲染（含尾部光标） */
   renderedByStream?: boolean
   /** 推理内容（<think> 块解析后合并） */
@@ -1263,10 +1356,32 @@ interface Attachment {
   error?: string;
 }
 const attachments = ref<Attachment[]>([])
+const imagePreview = reactive({
+  visible: false,
+  src: '',
+  name: ''
+})
 // 附件处于上传/压缩处理中（status=uploading）时禁用发送；已完成(done)或失败(error)后可发送
 const hasUnconfirmedAttachments = computed(() =>
   attachments.value.some((a) => a.status === 'uploading')
 )
+
+function isImageAttachment(fileType: string) {
+  return String(fileType || '').startsWith('image/')
+}
+
+function openImagePreview(src: string, name = '') {
+  if (!src) return
+  imagePreview.visible = true
+  imagePreview.src = src
+  imagePreview.name = name
+}
+
+function closeImagePreview() {
+  imagePreview.visible = false
+  imagePreview.src = ''
+  imagePreview.name = ''
+}
 
 // 助手消息更多操作菜单（导出）
 const messageMoreMenuIndex = ref<number | null>(null)
@@ -2131,6 +2246,7 @@ function fetchMessages(page: number, appendToTop = false): Promise<void> {
           reasoningText: reasoningText || undefined,
           isStreaming: false,
           isFinished: true,
+          isFavor: Boolean(m.isFavor ?? m.is_favor),
           timestamp: new Date(m.createdAt ?? m.createTime ?? Date.now()),
           aiAttachments: rawAttachments(m.aiAttachments ?? m.ai_attachments),
           isImageLoading: false,
@@ -2274,6 +2390,25 @@ function handleKeydown(event: KeyboardEvent) {
     // 非流式时按回车才发送 / 开始新会话
     if (hasChatId.value) handleSend()
     else startNewConversation()
+  }
+}
+
+async function toggleMessageFavor(message: AssistantMessage) {
+  if (!message.messageId || message.favorLoading) return
+
+  const nextFavor = !message.isFavor
+  const prevFavor = Boolean(message.isFavor)
+  message.isFavor = nextFavor
+  message.favorLoading = true
+
+  try {
+    await favorChatMessage(message.messageId, nextFavor)
+    ElMessage.success(nextFavor ? t('已点赞', 'Liked') : t('已取消点赞', 'Like removed'))
+  } catch (err: any) {
+    message.isFavor = prevFavor
+    ElMessage.error(err?.message || t('点赞操作失败', 'Failed to update like'))
+  } finally {
+    message.favorLoading = false
   }
 }
 
@@ -4291,6 +4426,11 @@ onBeforeUnmount(() => {
   transition: background 0.15s;
 }
 
+.message-attach-card.is-image {
+  border: none;
+  cursor: zoom-in;
+}
+
 .message-attach-card:hover {
   background: var(--slate-200, #e2e8f0);
 }
@@ -4311,6 +4451,64 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.attach-card-preview-btn {
+  border: none;
+  padding: 0;
+  cursor: zoom-in;
+}
+
+.image-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.image-preview-dialog {
+  position: relative;
+  max-width: min(92vw, 1080px);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.image-preview-close {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.82);
+  color: #fff;
+  cursor: pointer;
+}
+
+.image-preview-img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(92vh - 48px);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+  object-fit: contain;
+}
+
+.image-preview-name {
+  max-width: min(92vw, 1080px);
+  color: #e2e8f0;
+  font-size: 13px;
+  text-align: center;
+  word-break: break-word;
 }
 
 .message-attach-file-icon {
@@ -5870,4 +6068,3 @@ onBeforeUnmount(() => {
 }
 
 </style>
-

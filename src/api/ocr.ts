@@ -1,21 +1,16 @@
-import { getToken } from '../stores/auth'
+import { apiFetchRaw } from './http'
 
 /**
  * 调用 OCR 接口：上传图片，返回识别文本
  * POST /api/ai/ocr，MultipartFile，返回 Result<String>
  */
 export async function getOcr(file: File): Promise<string> {
-  const token = getToken()
   const form = new FormData()
   form.append('multipartFile', file)
 
-  const headers = new Headers()
-  if (token) headers.set('Authorization', token)
   // 不设置 Content-Type，让浏览器自动带 boundary
-
-  const res = await fetch('/api/ai/ocr', {
+  const res = await apiFetchRaw('/api/ai/ocr', {
     method: 'POST',
-    headers,
     body: form
   })
 

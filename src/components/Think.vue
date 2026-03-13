@@ -264,7 +264,7 @@ const thinkingSeconds = computed(() => {
 
 .think-content {
   max-width: 100%;
-  font-size: 0.6875rem;
+  font-size: 0.7875rem;
   line-height: 1.5;
   color: var(--text-secondary, #4b5563);
 }
