@@ -966,7 +966,7 @@ import { MoreFilled, CopyDocument, RefreshRight, Headset, VideoPause, Pointer, D
 import { useRoute, useRouter } from 'vue-router'
 import { createSession, getSessions, updateLastAssistantContent, updateSessionTitle } from '../stores/sessions'
 import { isLoggedIn, getToken } from '../stores/auth'
-import { apiFetch } from '../api/http'
+import { apiFetch, apiFetchRaw } from '../api/http'
 import { buildWsUrl } from '../api/base-url'
 
 import { uploadFile } from '../api/upload'
@@ -2697,7 +2697,7 @@ async function exportSingleMessage(message: ChatMessage, format: 'txt' | 'md' | 
 
   const fmt = format || 'txt'
   try {
-    const res = await fetch(
+    const res = await apiFetchRaw(
       `/api/export/${encodeURIComponent(String(id))}?format=${encodeURIComponent(fmt)}`,
       { method: 'GET' }
     )
