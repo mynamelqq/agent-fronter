@@ -254,6 +254,21 @@
 
     <!-- 💬 主内容区域 -->
     <main class="main-content">
+      <div class="mobile-topbar">
+        <button
+          type="button"
+          class="mobile-sidebar-toggle"
+          :aria-expanded="sidebarOpen ? 'true' : 'false'"
+          :aria-label="t('打开侧栏导航', 'Open sidebar navigation')"
+          @click="toggleSidebar"
+        >
+          <span class="mobile-sidebar-toggle-icon" aria-hidden="true">☰</span>
+        </button>
+        <button type="button" class="mobile-topbar-brand" @click="goHome">
+          <span class="mobile-topbar-brand-mark">AI</span>
+          <span class="mobile-topbar-brand-text">ChatUI Pro</span>
+        </button>
+      </div>
       <router-view />
     </main>
 
@@ -1832,6 +1847,10 @@ function closeAuth() {
 
 function closeSidebar() {
   state.sidebarOpen = false
+}
+
+function toggleSidebar() {
+  state.sidebarOpen = !state.sidebarOpen
 }
 
 // 🔐 认证操作

@@ -877,6 +877,64 @@ img, video {
   -ms-user-select: text;
 }
 
+.mobile-topbar {
+  display: none;
+}
+
+.mobile-sidebar-toggle {
+  border: 0;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text-primary);
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: var(--blur-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.mobile-sidebar-toggle-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.mobile-topbar-brand {
+  border: 0;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text-primary);
+  border-radius: 999px;
+  padding: 8px 14px 8px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: var(--blur-sm);
+  cursor: pointer;
+}
+
+.mobile-topbar-brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #9ab1cb, #7f9bbd);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mobile-topbar-brand-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
 .chat-container {
   display: flex;
   flex-direction: column;
@@ -2448,17 +2506,31 @@ button.primary:disabled {
   .main-content {
     width: 100%;
   }
+
+  .mobile-topbar {
+    position: sticky;
+    top: 0;
+    z-index: calc(var(--z-sticky) + 1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    background: linear-gradient(180deg, rgba(247, 248, 250, 0.96), rgba(247, 248, 250, 0.78));
+    border-bottom: 1px solid color-mix(in srgb, var(--border-light) 84%, transparent);
+    backdrop-filter: var(--blur-md);
+  }
   
   .chat-header {
-    padding: var(--spacing-md) var(--spacing-lg);
+    padding: 12px 14px;
   }
   
   .messages-container {
-    padding: var(--spacing-lg);
+    padding: 14px;
   }
   
   .input-container {
-    padding: var(--spacing-md) var(--spacing-lg);
+    padding: 12px 14px;
   }
   
   .message-bubble {
@@ -2467,6 +2539,22 @@ button.primary:disabled {
 }
 
 @media (max-width: 480px) {
+  .mobile-topbar {
+    padding: 10px 12px;
+  }
+
+  .mobile-topbar-brand {
+    min-width: 0;
+    flex: 1;
+    justify-content: flex-start;
+  }
+
+  .mobile-topbar-brand-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .messages-container {
     padding: var(--spacing-md);
   }
