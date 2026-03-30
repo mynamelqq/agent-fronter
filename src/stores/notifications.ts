@@ -11,6 +11,7 @@ import {
   type NotificationItem,
   type NotificationStatus
 } from '../api/notifications'
+import { buildWsUrl } from '../api/base-url'
 
 const PAGE_SIZE = 10
 
@@ -186,7 +187,7 @@ function connectWebSocket() {
   manualDisconnect = false
   clearReconnectTimer()
 
-  sock = new SockJS('/api/ws/notification')
+  sock = new SockJS(buildWsUrl('/api/ws/notification', 'VITE_NOTIFICATION_WS_URL'))
   if (!stompApi || typeof stompApi.over !== 'function') {
     wsConnected.value = false
     return

@@ -1,5 +1,6 @@
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from '../stores/auth'
 import { getAnnoIdForRequest } from './anon'
+import { buildApiUrl } from './base-url'
 
 export type ApiResult<T> = {
   code?: number
@@ -56,7 +57,8 @@ function extractAccessToken(payload: unknown): string {
 }
 
 async function doRefreshToken(refreshToken: string): Promise<string> {
-  const resp = await fetch(REFRESH_URL, {
+  const refreshUrl = buildApiUrl(REFRESH_URL)
+  const resp = await fetch(refreshUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken })
@@ -121,7 +123,9 @@ async function requestWithAutoRefresh(input: RequestInfo | URL, init: RequestIni
 }
 
 export async function apiFetch<T>(input: RequestInfo | URL, init: RequestInit = {}) {
-  const res = await requestWithAutoRefresh(input, init)
+  const resolvedInput =
+    typeof input === 'string' ? buildApiUrl(input) : input instanceof URL ? new URL(buildApiUrl(input.toString())) : input
+  const res = await requestWithAutoRefresh(resolvedInput, init)
   const ct = res.headers.get('content-type') || ''
   if (ct.includes('application/json')) {
     const json = (await res.json()) as ApiResult<T>
@@ -133,5 +137,7 @@ export async function apiFetch<T>(input: RequestInfo | URL, init: RequestInit = 
 
 // 流式接口需要保留原始 Response.body，不能在这里消费响应体
 export async function apiFetchRaw(input: RequestInfo | URL, init: RequestInit = {}) {
-  return requestWithAutoRefresh(input, init)
+  const resolvedInput =
+    typeof input === 'string' ? buildApiUrl(input) : input instanceof URL ? new URL(buildApiUrl(input.toString())) : input
+  return requestWithAutoRefresh(resolvedInput, init)
 }

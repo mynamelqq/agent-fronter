@@ -1,6 +1,7 @@
 import axios, { type AxiosError, type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios'
 import { getAccessToken, getRefreshToken, setTokens, clearTokens } from '../stores/auth'
 import { getAnnoIdForRequest } from './anon'
+import { buildApiUrl } from './base-url'
 
 // 刷新接口路径与请求体类型
 const REFRESH_URL = '/api/user/refresh'
@@ -22,7 +23,7 @@ const pendingQueue: PendingRequest[] = []
 
 function createAxiosInstance(): AxiosInstance {
   const instance = axios.create({
-    baseURL: '/api',
+    baseURL: buildApiUrl('/api'),
     timeout: 30000
   })
 
@@ -114,7 +115,7 @@ function createAxiosInstance(): AxiosInstance {
 }
 
 async function doRefreshToken(refreshToken: string): Promise<string> {
-  const resp = await axios.post<RefreshResponse>(REFRESH_URL, { refreshToken })
+  const resp = await axios.post<RefreshResponse>(buildApiUrl(REFRESH_URL), { refreshToken })
   const accessToken =
     (typeof resp.data?.accessToken === 'string' && resp.data.accessToken) ||
     (typeof resp.data?.data === 'string' && resp.data.data) ||

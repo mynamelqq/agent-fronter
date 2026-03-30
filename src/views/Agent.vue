@@ -433,6 +433,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import { isLoggedIn, getToken } from '../stores/auth'
 import { apiFetch, apiFetchRaw } from '../api/http'
+import { buildWsUrl } from '../api/base-url'
 import { uploadFile } from '../api/upload'
 import { compressMediaAttachment, isAllowedVideoFormat } from '../utils/attachment-compress'
 import Think from '../components/Think.vue'
@@ -445,13 +446,7 @@ import { transformMarkdownForStream } from '../utils/markdown'
 import { useUiLanguage } from '../composables/useUiLanguage'
 
 const getAsrWsUrl = (): string => {
-  const env = (import.meta as any).env
-  if (env?.VITE_ASR_WS_URL) return env.VITE_ASR_WS_URL
-  const protocol =
-    typeof location !== 'undefined' && location.protocol === 'https:'
-      ? 'wss:'
-      : 'ws:'
-  return `${protocol}//localhost:8123/api/ws/asr`
+  return buildWsUrl('/api/ws/asr', 'VITE_ASR_WS_URL')
 }
 
 /** Float32 转 16kHz 16bit PCM（用于 ASR） */

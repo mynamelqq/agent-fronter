@@ -967,6 +967,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { createSession, getSessions, updateLastAssistantContent, updateSessionTitle } from '../stores/sessions'
 import { isLoggedIn, getToken } from '../stores/auth'
 import { apiFetch } from '../api/http'
+import { buildWsUrl } from '../api/base-url'
 
 import { uploadFile } from '../api/upload'
 import { compressMediaAttachment, isAllowedVideoFormat } from '../utils/attachment-compress'
@@ -987,13 +988,7 @@ import { useUiLanguage } from '../composables/useUiLanguage'
 const { t, uiLocale } = useUiLanguage()
 
 const getAsrWsUrl = (): string => {
-  const env = (import.meta as any).env
-  if (env?.VITE_ASR_WS_URL) return env.VITE_ASR_WS_URL
-  const protocol =
-    typeof location !== 'undefined' && location.protocol === 'https:'
-      ? 'wss:'
-      : 'ws:'
-  return `${protocol}//localhost:8123/api/ws/asr`
+  return buildWsUrl('/api/ws/asr', 'VITE_ASR_WS_URL')
 }
 
 const getTtsWsUrl = (sessionId: string): string => {
@@ -1002,8 +997,8 @@ const getTtsWsUrl = (sessionId: string): string => {
     const base = env.VITE_TTS_WS_URL
     return base.includes('?') ? `${base}&sessionId=${encodeURIComponent(sessionId)}` : `${base}?sessionId=${encodeURIComponent(sessionId)}`
   }
-  const protocol = typeof location !== 'undefined' && location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//localhost:8123/api/ws/tts?sessionId=${encodeURIComponent(sessionId)}`
+  const base = buildWsUrl('/api/ws/tts')
+  return `${base}?sessionId=${encodeURIComponent(sessionId)}`
 }
 
 /** Float32 转 16kHz 16bit PCM（用于百炼 ASR） */
