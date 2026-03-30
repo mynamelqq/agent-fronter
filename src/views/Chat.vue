@@ -4585,6 +4585,10 @@ onBeforeUnmount(() => {
   color: #1f2937;
 }
 
+:global(.dark) .message-content.assistant-content {
+  color: var(--slate-100, #f1f5f9);
+}
+
 /* 基础 Markdown 样式（仅作用于主消息 .vue-markdown-wrapper，不覆盖 Think 组件） */
 .message-content.assistant-content > .vue-markdown-wrapper :deep(p) {
   margin: 0.75em 0;
@@ -4666,6 +4670,38 @@ onBeforeUnmount(() => {
   max-height: 320px;
   border-radius: 8px;
   margin: 1em 0;
+}
+
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(a) {
+  color: var(--blue-300, #93c5fd);
+}
+
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(a:hover) {
+  color: var(--blue-200, #bfdbfe);
+}
+
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(strong) {
+  color: #ffffff;
+}
+
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(code:not(pre code)) {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--slate-100, #f1f5f9);
+}
+
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(blockquote) {
+  border-left-color: rgba(148, 163, 184, 0.7);
+  color: var(--slate-300, #cbd5e1);
+}
+
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(th),
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(td) {
+  border-color: rgba(71, 85, 105, 0.85);
+}
+
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(th) {
+  background: rgba(30, 41, 59, 0.92);
+  color: var(--slate-100, #f1f5f9);
 }
 
 @keyframes image-skeleton-loading {
