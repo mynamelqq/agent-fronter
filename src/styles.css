@@ -1484,7 +1484,7 @@ img, video {
   background: var(--bg-primary);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-xl);
-  min-width: 400px;
+  min-width: min(400px, calc(100vw - 32px));
   max-width: 500px;
   width: 100%;
   min-height: 62vh;
@@ -2492,7 +2492,8 @@ button.primary:disabled {
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
-    left: -320px;
+    width: min(320px, 86vw);
+    left: calc(-1 * min(320px, 86vw) - 12px);
     top: 0;
     height: 100vh;
     z-index: var(--z-modal);
@@ -2505,6 +2506,7 @@ button.primary:disabled {
   
   .main-content {
     width: 100%;
+    min-width: 0;
   }
 
   .mobile-topbar {
@@ -2523,6 +2525,73 @@ button.primary:disabled {
   
   .chat-header {
     padding: 12px 14px;
+  }
+
+  .search-modal-backdrop {
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 10px;
+  }
+
+  .search-modal {
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - 20px);
+    border-radius: 18px;
+  }
+
+  .search-modal-header {
+    padding: 14px;
+  }
+
+  .search-modal-body {
+    padding: 14px;
+    min-height: 0;
+  }
+
+  .search-results {
+    min-height: 0;
+  }
+
+  .modal-backdrop {
+    padding: 12px;
+    align-items: flex-end;
+  }
+
+  .modal {
+    min-width: 0;
+    max-width: none;
+    min-height: 0;
+    max-height: min(94dvh, 94vh);
+    border-radius: 20px 20px 16px 16px;
+  }
+
+  .modal-head,
+  .modal-body,
+  .modal-foot {
+    padding: 14px;
+  }
+
+  .edit-profile-avatar-section {
+    padding: 1rem 0;
+  }
+
+  .edit-profile-avatar-img,
+  .edit-profile-avatar-initials,
+  .edit-profile-avatar-loading {
+    width: 6rem;
+    height: 6rem;
+  }
+
+  .edit-profile-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .edit-profile-actions .btn-secondary,
+  .edit-profile-actions .btn-primary {
+    width: 100%;
   }
   
   .messages-container {
@@ -2555,6 +2624,15 @@ button.primary:disabled {
     white-space: nowrap;
   }
 
+  .sidebar-header,
+  .sidebar-actions,
+  .sessions-header,
+  .sessions-list,
+  .user-profile {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
   .messages-container {
     padding: var(--spacing-md);
   }
@@ -2562,6 +2640,16 @@ button.primary:disabled {
   .message-bubble {
     max-width: 90%;
     padding: var(--spacing-sm) var(--spacing-md);
+  }
+
+  .search-modal-header h3,
+  .usage-panel-title,
+  .edit-profile-title {
+    font-size: 1rem;
+  }
+
+  .search-empty {
+    padding: var(--spacing-lg);
   }
 }
 
@@ -3480,6 +3568,50 @@ html {
 }
 
 @media (max-width: 480px) {
+  .usage-panel-modal {
+    width: calc(100vw - 12px);
+    max-width: calc(100vw - 12px);
+    max-height: calc(100dvh - 12px);
+    border-radius: 20px 20px 16px 16px;
+  }
+
+  .usage-panel-header {
+    padding: 14px 14px 10px;
+  }
+
+  .usage-panel-body {
+    padding: 12px 14px 14px;
+  }
+
+  .usage-chart-toggle {
+    display: flex;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .usage-chart-toggle-btn {
+    white-space: nowrap;
+  }
+
+  .usage-panel-chart {
+    height: 248px !important;
+    min-height: 228px;
+  }
+
+  .usage-panel-pie-chart {
+    height: 248px !important;
+    min-height: 248px;
+  }
+
+  .usage-top-model-row {
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .usage-top-model-calls {
+    grid-column: 2;
+  }
+
   .usage-kpi-grid {
     grid-template-columns: 1fr;
   }

@@ -38,6 +38,22 @@ function resolveRequestUrl(input: RequestInfo | URL): string {
   return input.url
 }
 
+function resolveFetchInput(input: RequestInfo | URL): RequestInfo | URL {
+  if (typeof input === 'string') {
+    return buildApiUrl(input)
+  }
+
+  if (input instanceof URL) {
+    const protocol = input.protocol.toLowerCase()
+    if (protocol === 'http:' || protocol === 'https:') {
+      return input
+    }
+    return input.toString()
+  }
+
+  return input
+}
+
 function isRefreshRequest(input: RequestInfo | URL): boolean {
   return resolveRequestUrl(input).includes(REFRESH_URL)
 }
@@ -123,8 +139,7 @@ async function requestWithAutoRefresh(input: RequestInfo | URL, init: RequestIni
 }
 
 export async function apiFetch<T>(input: RequestInfo | URL, init: RequestInit = {}) {
-  const resolvedInput =
-    typeof input === 'string' ? buildApiUrl(input) : input instanceof URL ? new URL(buildApiUrl(input.toString())) : input
+  const resolvedInput = resolveFetchInput(input)
   const res = await requestWithAutoRefresh(resolvedInput, init)
   const ct = res.headers.get('content-type') || ''
   if (ct.includes('application/json')) {
@@ -137,7 +152,6 @@ export async function apiFetch<T>(input: RequestInfo | URL, init: RequestInit = 
 
 // 流式接口需要保留原始 Response.body，不能在这里消费响应体
 export async function apiFetchRaw(input: RequestInfo | URL, init: RequestInit = {}) {
-  const resolvedInput =
-    typeof input === 'string' ? buildApiUrl(input) : input instanceof URL ? new URL(buildApiUrl(input.toString())) : input
+  const resolvedInput = resolveFetchInput(input)
   return requestWithAutoRefresh(resolvedInput, init)
 }

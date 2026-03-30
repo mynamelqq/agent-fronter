@@ -521,4 +521,45 @@ watch(
     max-height: 280px;
   }
 }
+
+@media (max-width: 640px) {
+  .notification-panel {
+    width: min(96vw, 96vw);
+    gap: 8px;
+  }
+
+  .notification-panel-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .notification-panel-actions,
+  .notification-tabs {
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .notification-layout {
+    gap: 10px;
+  }
+
+  .notification-list {
+    max-height: 240px;
+    padding: 0 8px;
+  }
+
+  .notification-item {
+    gap: 8px;
+  }
+
+  .notification-detail-title {
+    font-size: 15px;
+  }
+
+  .notification-detail-content {
+    max-height: 220px;
+    font-size: 13px;
+  }
+}
 </style>

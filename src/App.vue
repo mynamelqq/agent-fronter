@@ -38,6 +38,7 @@
           class="sidebar-menu-item"
           data-testid="sidebar-item-agents"
           to="/agent"
+          @click="closeSidebar"
         >
           <span class="sidebar-item-icon">🤖</span>
           <span class="sidebar-item-label">{{ t('智能体', 'Agent') }}</span>
@@ -47,6 +48,7 @@
           class="sidebar-menu-item"
           data-testid="sidebar-item-library"
           to="/images"
+          @click="closeSidebar"
         >
           <span class="sidebar-item-icon">🖼️</span>
           <span class="sidebar-item-label">{{ t('图片', 'Images') }}</span>
@@ -1325,6 +1327,7 @@ function createNew() {
 }
 
 function openSearchModal() {
+  closeSidebar()
   showSearchModal.value = true
   // 聚焦搜索输入框
   nextTick(() => {

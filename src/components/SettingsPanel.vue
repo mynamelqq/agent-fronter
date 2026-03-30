@@ -1546,6 +1546,27 @@ onMounted(async () => {
   animation: settingsSlideIn 0.25s ease;
 }
 
+@media (max-width: 767px) {
+  .settings-backdrop {
+    padding: 10px;
+    align-items: flex-end;
+  }
+
+  .settings-panel {
+    max-width: none;
+    max-height: calc(100dvh - 20px);
+    border-radius: 20px 20px 16px 16px;
+  }
+
+  .settings-tablist {
+    padding-bottom: 2px;
+  }
+
+  .settings-content {
+    padding: 14px;
+  }
+}
+
 @keyframes settingsSlideIn {
   from {
     opacity: 0;
