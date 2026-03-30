@@ -15,12 +15,12 @@ export default defineConfig({
     }
   },
   server: {
-    allowedHosts: ['51851429.r29.cpolar.top'],
+    allowedHosts: ['51851429.r29.cpolar.top','https://511ffd4d.r29.cpolar.top'],
     host: '0.0.0.0',
     port: 5174,
     proxy: {
       '/api': {
-        target: 'http://8a319ee.r29.cpolar.top',
+        target: 'https://511ffd4d.r29.cpolar.top',
         changeOrigin: true,
         secure: false,
         ws: true
