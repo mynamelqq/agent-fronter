@@ -8,7 +8,7 @@
           <div class="home-left">
             <div class="home-badge-row">
               <span class="home-badge-primary">{{ t('AI 开发平台 · 自动化工作台', 'AI Development Platform · Automation Workspace') }}</span>
-              <span class="home-badge-sub">Agent · Tools · Execution</span>
+              <span class="home-badge-sub">智能体 · 工具 · 执行</span>
             </div>
             <h1 class="home-title">
               {{ t('AI 不止会聊天，', 'AI does more than chat,') }}<br />
@@ -32,7 +32,7 @@
                 :disabled="isStreaming"
                 @click="useSuggestion('展示一下你能生成哪些文件、图表、代码和自动化报告，并说明你会用到哪些工具',11)"
               >
-                {{ t('View capability examples', 'View capability examples') }}
+                {{ t('查看能力示例', 'View capability examples') }}
               </button>
             </div>
             <div class="home-feature-tags" :class="{ 'is-collapsed': !homeDetailsExpanded }">
@@ -69,7 +69,7 @@
           <div class="home-right">
             <div class="home-agent-card">
               <div class="home-agent-card-header">
-                <span class="home-agent-badge">Manus Agent</span>
+                <span class="home-agent-badge">Manus 智能体</span>
                 <span class="home-agent-status">
                   <span class="home-agent-dot"></span>
                   {{ t('准备执行', 'Ready') }}
@@ -2812,6 +2812,47 @@ const ttsPlaying = ref(false)
 let ttsConnectionPromise: Promise<void> | null = null
 /** 下一段音频在 AudioContext 时间轴上的开始时间，用于连续播放、避免断音 */
 let ttsNextStartTime = 0
+const ttsPcmSampleRate = Number((import.meta as any).env?.VITE_TTS_PCM_SAMPLE_RATE) || 24000
+const ttsPcmChannels = Number((import.meta as any).env?.VITE_TTS_PCM_CHANNELS) || 1
+
+function decodePcm16Mono(arrayBuffer: ArrayBuffer, sampleRate: number, channels = 1): AudioBuffer | null {
+  if (!ttsAudioCtx || channels <= 0) return null
+  const bytesPerSample = 2
+  const totalSamples = Math.floor(arrayBuffer.byteLength / bytesPerSample / channels)
+  if (totalSamples <= 0) return null
+
+  const audioBuffer = ttsAudioCtx.createBuffer(channels, totalSamples, sampleRate)
+  const view = new DataView(arrayBuffer)
+
+  for (let channel = 0; channel < channels; channel += 1) {
+    const channelData = audioBuffer.getChannelData(channel)
+    for (let i = 0; i < totalSamples; i += 1) {
+      const sampleIndex = (i * channels + channel) * bytesPerSample
+      const sample = view.getInt16(sampleIndex, true)
+      channelData[i] = sample / 32768
+    }
+  }
+
+  return audioBuffer
+}
+
+async function decodeTtsAudioChunk(arrayBuffer: ArrayBuffer, ctx: AudioContext): Promise<AudioBuffer | null> {
+  try {
+    return await ctx.decodeAudioData(arrayBuffer.slice(0))
+  } catch {
+    return decodePcm16Mono(arrayBuffer, ttsPcmSampleRate, ttsPcmChannels)
+  }
+}
+
+async function ensureTtsAudioContext(): Promise<AudioContext> {
+  if (!ttsAudioCtx) {
+    ttsAudioCtx = new AudioContext()
+  }
+  if (ttsAudioCtx.state === 'suspended') {
+    await ttsAudioCtx.resume()
+  }
+  return ttsAudioCtx
+}
 
 function ensureTtsSessionId() {
   if (!ttsSessionId.value) {
@@ -2857,11 +2898,11 @@ function ensureTtsConnection(): Promise<void> {
         const audioData = event.data instanceof ArrayBuffer
           ? event.data
           : await (event.data as Blob).arrayBuffer()
-        if (!ttsAudioCtx) {
-          ttsAudioCtx = new AudioContext()
+        const ctx = await ensureTtsAudioContext()
+        const audioBuffer = await decodeTtsAudioChunk(audioData, ctx)
+        if (!audioBuffer) {
+          throw new Error('Unsupported TTS audio chunk')
         }
-        const audioBuffer = await ttsAudioCtx.decodeAudioData(audioData)
-        const ctx = ttsAudioCtx
         const now = ctx.currentTime
         // 首帧或间隔过久：从当前时刻开始，避免断音
         if (ttsNextStartTime < now) {
@@ -2873,6 +2914,7 @@ function ensureTtsConnection(): Promise<void> {
         src.start(ttsNextStartTime)
         ttsNextStartTime += audioBuffer.duration
       } catch (e) {
+        console.warn('TTS audio playback failed', e)
       }
     }
   })
@@ -2893,6 +2935,7 @@ async function readMessageAloud(message: ChatMessage) {
     return
   }
   try {
+    await ensureTtsAudioContext()
     await ensureTtsConnection()
     ttsNextStartTime = 0
     ttsPlaying.value = true
