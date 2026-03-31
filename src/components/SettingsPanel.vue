@@ -1768,11 +1768,13 @@ onMounted(async () => {
   background: var(--bg-secondary);
 }
 
-.dark .settings-select {
+:global(.dark) .settings-select {
   background: transparent;
+  color: #ffffff;
+  border-color: rgba(71, 85, 105, 0.7);
 }
 
-.dark .settings-select:hover {
+:global(.dark) .settings-select:hover {
   background: var(--bg-tertiary);
 }
 
@@ -1806,6 +1808,12 @@ onMounted(async () => {
   z-index: 10;
 }
 
+:global(.dark) .settings-dropdown-menu {
+  background: #111827;
+  border-color: rgba(71, 85, 105, 0.85);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
 .settings-dropdown-item {
   width: 100%;
   display: flex;
@@ -1829,6 +1837,16 @@ onMounted(async () => {
 .settings-dropdown-item.is-active {
   background: var(--bg-secondary);
   font-weight: 500;
+}
+
+:global(.dark) .settings-dropdown-item {
+  color: #ffffff;
+}
+
+:global(.dark) .settings-dropdown-item:hover,
+:global(.dark) .settings-dropdown-item.is-active {
+  background: rgba(51, 65, 85, 0.88);
+  color: #ffffff;
 }
 
 .settings-dropdown-left {
@@ -2026,12 +2044,46 @@ onMounted(async () => {
   background: var(--bg-secondary);
 }
 
-.dark .settings-native-select {
+:global(.dark) .settings-native-select {
   background: transparent;
+  color: #ffffff;
+  border-color: rgba(71, 85, 105, 0.7);
 }
 
-.dark .settings-native-select:hover {
+:global(.dark) .settings-native-select:hover {
   background: var(--bg-tertiary);
+}
+
+:global(.dark) .settings-section-title,
+:global(.dark) .settings-row-label,
+:global(.dark) .settings-model-name,
+:global(.dark) .settings-dropdown-label,
+:global(.dark) .settings-form-input,
+:global(.dark) .settings-content {
+  color: #ffffff;
+}
+
+:global(.dark) .settings-subsection-title,
+:global(.dark) .settings-row-desc,
+:global(.dark) .model-option-id,
+:global(.dark) .settings-model-company,
+:global(.dark) .settings-model-id,
+:global(.dark) .settings-model-desc,
+:global(.dark) .settings-model-tag,
+:global(.dark) .settings-form-label,
+:global(.dark) .settings-row-value,
+:global(.dark) .settings-save-status {
+  color: #cbd5e1;
+}
+
+:global(.dark) .settings-model-card {
+  background: rgba(30, 41, 59, 0.72);
+  border-color: rgba(71, 85, 105, 0.85);
+}
+
+:global(.dark) .settings-form-input {
+  background: rgba(15, 23, 42, 0.88);
+  border-color: rgba(71, 85, 105, 0.85);
 }
 
 .settings-native-select-arrow {

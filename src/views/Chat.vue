@@ -4585,8 +4585,9 @@ onBeforeUnmount(() => {
   color: #1f2937;
 }
 
+:global(.dark) .message-content.user-text,
 :global(.dark) .message-content.assistant-content {
-  color: var(--slate-100, #f1f5f9);
+  color: #ffffff;
 }
 
 /* 基础 Markdown 样式（仅作用于主消息 .vue-markdown-wrapper，不覆盖 Think 组件） */

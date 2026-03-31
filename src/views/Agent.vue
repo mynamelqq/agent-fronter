@@ -2178,6 +2178,23 @@ onBeforeUnmount(() => {
   color: var(--agent-text);
 }
 
+:global(.dark) .messages-container {
+  background: #020617;
+}
+
+:global(.dark) .message-bubble.user {
+  background: rgba(30, 41, 59, 0.96);
+  color: #ffffff;
+  border-color: rgba(71, 85, 105, 0.88);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+}
+
+:global(.dark) .message-content,
+:global(.dark) .message-content.assistant-body,
+:global(.dark) .message-content.assistant-body :deep(strong) {
+  color: #ffffff;
+}
+
 .message-content.assistant-body :deep(p) {
   margin: 0.75em 0;
 }
@@ -2210,6 +2227,14 @@ onBeforeUnmount(() => {
   color: #345277;
 }
 
+:global(.dark) .message-content.assistant-body :deep(a) {
+  color: #93c5fd;
+}
+
+:global(.dark) .message-content.assistant-body :deep(a:hover) {
+  color: #bfdbfe;
+}
+
 .message-content.assistant-body :deep(strong) {
   font-weight: 600;
   color: var(--agent-text);
@@ -2228,6 +2253,11 @@ onBeforeUnmount(() => {
   color: #3f4f63;
 }
 
+:global(.dark) .message-content.assistant-body :deep(code:not(pre code)) {
+  background: rgba(148, 163, 184, 0.16);
+  color: #e2e8f0;
+}
+
 .message-content.assistant-body :deep(pre) {
   margin: 1em 0;
   padding: 1em;
@@ -2236,6 +2266,11 @@ onBeforeUnmount(() => {
   overflow-x: auto;
   font-size: 0.95em;
   line-height: 1.5;
+}
+
+:global(.dark) .message-content.assistant-body :deep(pre) {
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(71, 85, 105, 0.85);
 }
 
 .message-content.assistant-body :deep(pre code) {
@@ -2251,6 +2286,11 @@ onBeforeUnmount(() => {
   color: #677284;
 }
 
+:global(.dark) .message-content.assistant-body :deep(blockquote) {
+  border-left-color: rgba(148, 163, 184, 0.7);
+  color: #cbd5e1;
+}
+
 .message-content.assistant-body :deep(table) {
   border-collapse: collapse;
   width: 100%;
@@ -2264,9 +2304,20 @@ onBeforeUnmount(() => {
   text-align: left;
 }
 
+:global(.dark) .message-content.assistant-body :deep(th),
+:global(.dark) .message-content.assistant-body :deep(td) {
+  border-color: rgba(71, 85, 105, 0.85);
+  color: #e5e7eb;
+}
+
 .message-content.assistant-body :deep(th) {
   background: #f4f7fb;
   font-weight: 600;
+}
+
+:global(.dark) .message-content.assistant-body :deep(th) {
+  background: rgba(30, 41, 59, 0.92);
+  color: #ffffff;
 }
 
 .message-content.assistant-body :deep(img) {
@@ -2289,6 +2340,13 @@ onBeforeUnmount(() => {
   color: var(--agent-text-muted);
   font-size: 14px;
   letter-spacing: 0.01em;
+}
+
+:global(.dark) .attachment-loading-text,
+:global(.dark) .agent-message-footer,
+:global(.dark) .messages-loading-text,
+:global(.dark) .attach-card-type {
+  color: #cbd5e1;
 }
 
 .attachment-loading-wave {
@@ -2428,10 +2486,21 @@ onBeforeUnmount(() => {
   transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
 }
 
+:global(.dark) .attach-card {
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.92));
+  border-color: rgba(71, 85, 105, 0.85);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
 .attach-card:hover {
   border-color: #bfdbfe;
   box-shadow: 0 10px 20px rgba(37, 99, 235, 0.12);
   transform: translateY(-1px);
+}
+
+:global(.dark) .attach-card:hover {
+  border-color: rgba(96, 165, 250, 0.7);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.36);
 }
 
 .attach-card-icon {
@@ -2445,6 +2514,10 @@ onBeforeUnmount(() => {
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
+}
+
+:global(.dark) .attach-card-icon {
+  background: rgba(51, 65, 85, 0.92);
 }
 
 .attach-card-img {
@@ -2469,8 +2542,16 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
+:global(.dark) .attach-card-file-icon {
+  color: #cbd5e1;
+}
+
 .attach-card-file-icon.is-text {
   color: #2563eb;
+}
+
+:global(.dark) .attach-card-file-icon.is-text {
+  color: #93c5fd;
 }
 
 .attach-card-file-svg {
@@ -2491,6 +2572,12 @@ onBeforeUnmount(() => {
   color: #0f172a;
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+:global(.dark) .attach-card-ext-pill {
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.92);
+  border-color: rgba(71, 85, 105, 0.85);
 }
 
 .attach-card-progress {
@@ -2570,6 +2657,10 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
 }
 
+:global(.dark) .attach-card-name {
+  color: #ffffff;
+}
+
 .attach-card-type {
   font-size: 11.5px;
   color: var(--agent-text-muted);
@@ -2607,6 +2698,11 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
+:global(.dark) .input-container {
+  background: rgba(2, 6, 23, 0.94);
+  border-top-color: rgba(71, 85, 105, 0.85);
+}
+
 .input-box-container {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -2627,15 +2723,30 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
 }
 
+:global(.dark) .input-box-container {
+  background: rgba(15, 23, 42, 0.96);
+  border-color: rgba(71, 85, 105, 0.85);
+}
+
 .input-box-container:focus-within {
   border-color: var(--agent-accent);
   box-shadow: 0 0 0 3px rgba(95, 126, 168, 0.14);
+}
+
+:global(.dark) .input-box-container:focus-within {
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.16);
 }
 
 .input-box-container.input-box-has-attachments {
   border-color: #d8e0ea;
   background: linear-gradient(180deg, #ffffff, #f7f9fc);
   box-shadow: 0 10px 24px rgba(31, 45, 66, 0.08);
+}
+
+:global(.dark) .input-box-container.input-box-has-attachments {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.92));
+  border-color: rgba(71, 85, 105, 0.9);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
 }
 
 .input-box-container .message-input {
@@ -2669,6 +2780,14 @@ onBeforeUnmount(() => {
 .message-input::placeholder {
   color: #9a8a76;
   font-size: 14px;
+}
+
+:global(.dark) .message-input {
+  color: #ffffff;
+}
+
+:global(.dark) .message-input::placeholder {
+  color: #94a3b8;
 }
 
 .message-input:disabled {
@@ -2712,6 +2831,16 @@ onBeforeUnmount(() => {
   border-color: rgba(159, 178, 203, 0.45);
   background: rgba(95, 126, 168, 0.08);
   color: #4f698a;
+}
+
+:global(.dark) .input-action-btn {
+  color: #cbd5e1;
+}
+
+:global(.dark) .input-action-btn:hover:not(:disabled) {
+  border-color: rgba(96, 165, 250, 0.42);
+  background: rgba(59, 130, 246, 0.12);
+  color: #ffffff;
 }
 
 .attach-btn-icon {
