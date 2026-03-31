@@ -2876,6 +2876,7 @@ html {
 .dark .message-content.assistant-content .vue-markdown-wrapper p,
 .dark .message-content.assistant-content .vue-markdown-wrapper ul,
 .dark .message-content.assistant-content .vue-markdown-wrapper ol,
+.dark .message-content.assistant-content .vue-markdown-wrapper strong,
 .dark .message-content.assistant-content .vue-markdown-wrapper li {
   color: #ffffff !important;
 }
