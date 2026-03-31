@@ -4590,6 +4590,20 @@ onBeforeUnmount(() => {
   color: #ffffff;
 }
 
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper,
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(h1),
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(h2),
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(h3),
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(h4),
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(h5),
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(h6),
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(p),
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(ul),
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(ol),
+:global(.dark) .message-content.assistant-content > .vue-markdown-wrapper :deep(li) {
+  color: #ffffff;
+}
+
 /* 基础 Markdown 样式（仅作用于主消息 .vue-markdown-wrapper，不覆盖 Think 组件） */
 .message-content.assistant-content > .vue-markdown-wrapper :deep(p) {
   margin: 0.75em 0;
