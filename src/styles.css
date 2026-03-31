@@ -1268,7 +1268,7 @@ img, video {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 0.875rem;
   line-height: 1.65;
-  color: #ffffff;
+  color: #1f2937;
   box-shadow: none;
 }
 .message-content .vue-markdown-wrapper pre code,
@@ -2863,6 +2863,21 @@ html {
   background: transparent;
   border: none;
   color: var(--text-primary);
+}
+
+.dark .message-content.assistant-content,
+.dark .message-content.assistant-content .vue-markdown-wrapper,
+.dark .message-content.assistant-content .vue-markdown-wrapper h1,
+.dark .message-content.assistant-content .vue-markdown-wrapper h2,
+.dark .message-content.assistant-content .vue-markdown-wrapper h3,
+.dark .message-content.assistant-content .vue-markdown-wrapper h4,
+.dark .message-content.assistant-content .vue-markdown-wrapper h5,
+.dark .message-content.assistant-content .vue-markdown-wrapper h6,
+.dark .message-content.assistant-content .vue-markdown-wrapper p,
+.dark .message-content.assistant-content .vue-markdown-wrapper ul,
+.dark .message-content.assistant-content .vue-markdown-wrapper ol,
+.dark .message-content.assistant-content .vue-markdown-wrapper li {
+  color: #ffffff !important;
 }
 
 .dark .message-input {

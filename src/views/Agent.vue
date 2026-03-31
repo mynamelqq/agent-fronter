@@ -2191,6 +2191,16 @@ onBeforeUnmount(() => {
 
 :global(.dark) .message-content,
 :global(.dark) .message-content.assistant-body,
+:global(.dark) .message-content.assistant-body :deep(h1),
+:global(.dark) .message-content.assistant-body :deep(h2),
+:global(.dark) .message-content.assistant-body :deep(h3),
+:global(.dark) .message-content.assistant-body :deep(h4),
+:global(.dark) .message-content.assistant-body :deep(h5),
+:global(.dark) .message-content.assistant-body :deep(h6),
+:global(.dark) .message-content.assistant-body :deep(p),
+:global(.dark) .message-content.assistant-body :deep(ul),
+:global(.dark) .message-content.assistant-body :deep(ol),
+:global(.dark) .message-content.assistant-body :deep(li),
 :global(.dark) .message-content.assistant-body :deep(strong) {
   color: #ffffff;
 }
