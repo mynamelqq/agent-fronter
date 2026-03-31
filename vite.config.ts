@@ -20,7 +20,7 @@ export default defineConfig({
     port: 5174,
     proxy: {
       '/api': {
-        target: 'https://511ffd4d.r29.cpolar.top',
+        target: 'https://481644d6.r29.cpolar.top',
         changeOrigin: true,
         secure: false,
         ws: true
